@@ -2,7 +2,6 @@ const path = require('path');
 // const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
-  // entry: './index.js',
   entry: './src/app.js',
   output: {
     libraryTarget: 'umd',
