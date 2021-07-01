@@ -1,10 +1,10 @@
-"use strict"
+"use strict";
 
 import * as Comlink from "comlink";
 import WasmWorker from "./wasm-worker.js";
 
-import { assert, assertNotReached } from "./assert.js"
-import { AtomicWriter, SHARED_ARRAY_BUFFER_INDEX } from "./atomics.js"
+import { assert, assertNotReached } from "./assert.js";
+import { AtomicWriter, SHARED_ARRAY_BUFFER_INDEX } from "./atomics.js";
 
 export default class WasmMsePlayer {
   constructor(file_size, read_cb, onFragmentCb, onFFmpegMsgCb) {
@@ -25,7 +25,7 @@ export default class WasmMsePlayer {
         pos,
         Math.min(this._atomic_writer.BufferSize, max_read_n)
       );
-    } catch(err) {
+    } catch (err) {
       console.error("WasmMsePlayer _read_cb met error:", err);
       return;
     }
@@ -41,7 +41,7 @@ export default class WasmMsePlayer {
       this._atomic_writer,
       Comlink.proxy(this._on_fragment.bind(this)),
       Comlink.proxy(this._on_ffmpeg_msg.bind(this)),
-      Comlink.proxy(this._send_read_request.bind(this)),
+      Comlink.proxy(this._send_read_request.bind(this))
     );
     this._worker.run();
   }

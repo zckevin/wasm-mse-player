@@ -1,5 +1,5 @@
-import { assert, assertNotReached } from './assert.js';
-import SimpleMp4Parser from "./mp4-parser.js"
+import { assert, assertNotReached } from "./assert.js";
+import SimpleMp4Parser from "./mp4-parser.js";
 
 class InputFileDevice {
   constructor(file_size, atomic_reader) {
@@ -11,12 +11,12 @@ class InputFileDevice {
   open(stream, path, flags) {
     if (!stream.node.node_ops.getattr._swapped) {
       let original = stream.node.node_ops.getattr;
-      let proxy_func = function(...args) {
+      let proxy_func = function (...args) {
         let attr = original(...args);
         attr.size = this._file_size;
         console.log(`getattr return file_size: ${this._file_size}`);
         return attr;
-      }
+      };
       stream.node.node_ops.getattr = proxy_func.bind(this);
       stream.node.node_ops.getattr._swapped = true;
     }
@@ -34,12 +34,12 @@ class InputFileDevice {
    * @return {number} The numbers of bytes read.
    */
   read(stream, buffer, offset, length, position) {
-    let ab = this._atomic_reader.BlockRead(this._pos, length)
+    let ab = this._atomic_reader.BlockRead(this._pos, length);
     let read_n = ab.byteLength;
     // console.log(`read_n: read_n(${read_n})`, ab);
-    
+
     buffer.set(new Int8Array(ab), offset);
-    
+
     // move file cursor forward
     this._pos += read_n;
     return read_n;
@@ -59,16 +59,18 @@ class InputFileDevice {
    * @return {number} The resulting file position.
    */
   llseek(stream, offset, whence) {
-    assert(whence === 0, 'only SEEK_SET is supported');
+    assert(whence === 0, "only SEEK_SET is supported");
     this._pos = offset;
-		console.log("seek:", offset, whence);
+    console.log("seek:", offset, whence);
     return offset;
   }
 
   getFileOps() {
     return {
       open: this.open.bind(this),
-      close: () => {console.log("close", arguments)},
+      close: () => {
+        console.log("close", arguments);
+      },
       read: this.read.bind(this),
       write: this.write.bind(this),
       llseek: this.llseek.bind(this),
@@ -78,13 +80,12 @@ class InputFileDevice {
 
 class OutputFileDevice {
   constructor(onFragmentCallback) {
-    this.onFragmentCallback = onFragmentCallback;
     this._parser = new SimpleMp4Parser();
+    this._parser.RunParseLoop(onFragmentCallback)
   }
 
   open(stream, path, flags) {
     console.log("open", stream, path, flags);
-    // return new Int8Array(1024 * 1024);
     return stream;
   }
 
@@ -112,21 +113,7 @@ class OutputFileDevice {
    */
   write(stream, buffer, offset, length, position) {
     let view = buffer.subarray(offset, offset + length);
-    // console.log("write", view)
-
-    let frag;
-
-    // try {
-    frag = this._parser.try_parse(view);
-    // } catch (err) {
-    //   console.error(err)
-    // }
-
-    if (frag) {
-      // console.log("onfrag", frag)
-      assert(this.onFragmentCallback, "OutputFileDevice onFragmentCallback is undefined")
-      this.onFragmentCallback(frag);
-    }
+    this._parser.AppendUint8View(view);
     return length;
   }
 
@@ -140,16 +127,18 @@ class OutputFileDevice {
    * @return {number} The resulting file position.
    */
   llseek(stream, offset, whence) {
-    assert(whence === 0, 'only SEEK_SET is supported');
+    assert(whence === 0, "only SEEK_SET is supported");
     this._pos = offset;
-		console.log("seek:", offset, whence);
+    console.log("seek:", offset, whence);
     return offset;
   }
 
   getFileOps() {
     return {
       open: this.open.bind(this),
-      close: () => {console.log("close", arguments)},
+      close: () => {
+        console.log("close", arguments);
+      },
       read: this.read.bind(this),
       write: this.write.bind(this),
       llseek: this.llseek.bind(this),
@@ -157,7 +146,4 @@ class OutputFileDevice {
   }
 }
 
-export {
-  InputFileDevice,
-  OutputFileDevice,
-}
+export { InputFileDevice, OutputFileDevice };
