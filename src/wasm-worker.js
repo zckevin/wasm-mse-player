@@ -5,7 +5,6 @@ import * as Comlink from "comlink";
 import factory from "../dist/ffmpeg.js";
 import { assert, assertNotReached } from "./assert.js";
 import { OutputFileDevice, InputFileDevice } from "./vfs.js";
-import { AtomicReader } from "./atomics.js";
 
 class WasmWorker {
   constructor() {
@@ -35,19 +34,15 @@ class WasmWorker {
     this._module = null;
   }
 
-  init(
-    file_size,
-    atomic_writer,
-    onFragmentCallback,
-    onFFmpegMsgCallback,
-    sendReadRequest
-  ) {
+  init(file_size, onFragmentCallback, onFFmpegMsgCallback, sendReadRequest) {
     this.onFFmpegMsgCallback = onFFmpegMsgCallback;
 
+    this.inputFile = new InputFileDevice(file_size, sendReadRequest);
     this.outputFile = new OutputFileDevice(onFragmentCallback);
 
-    let atomic_reader = new AtomicReader(atomic_writer, sendReadRequest);
-    this.inputFile = new InputFileDevice(file_size, atomic_reader);
+    globalThis.waitReadable = (callback) => {
+      this.inputFile.setReadableCallback(callback);
+    };
   }
 
   // this.onFFmpegMsgCallback is a JSProxy, wrap it up using a function
@@ -60,10 +55,17 @@ class WasmWorker {
     this.onFFmpegMsgCallback(msg);
   }
 
-  runFFmpeg(Module) {
-    // const cmd = `ffmpeg -y -loglevel info -i assets/Amaze-Dolby-thedigitaltheater.mp4 -c:v copy -c:a aac -channel_layout stereo -movflags frag_keyframe+empty_moov+default_base_moof -frag_size 5000000 -f mov output.mp4`
-    const cmd = `ffmpeg -y -loglevel debug -i input.file -c:v copy -c:a aac -channel_layout stereo -movflags frag_keyframe+empty_moov+default_base_moof -frag_size 5000000 -f mov output.mp4`;
+  _runFFmpeg(Module) {
     // const cmd = `ffmpeg -v trace -i input.file`
+    const cmd = `ffmpeg -y \
+      -loglevel debug \
+      -i input.file
+      -c:v copy \
+      -c:a aac \
+      -channel_layout stereo \
+      -movflags frag_keyframe+empty_moov+default_base_moof \
+      -frag_size 5000000 \
+      -f mov output.mp4`;
 
     // create char** argv
     const args = cmd.split(" ");
@@ -85,7 +87,8 @@ class WasmWorker {
       [
         "number", // int argc
         "number", // char** argv
-      ]
+      ],
+      { async: true }
     );
 
     try {
@@ -102,10 +105,20 @@ class WasmWorker {
     }
   }
 
+  // TODO: remove this later
+  transferAbToWorker(view) {
+    try {
+      let ab = view.buffer;
+      this.inputFile.append(ab);
+    } catch (err) {
+      console.log("transferAb err", err);
+    }
+  }
+
   run() {
     factory(this.emscriten_config).then((Module) => {
       this._module = Module;
-      this.runFFmpeg(Module);
+      this._runFFmpeg(Module);
     });
   }
 }

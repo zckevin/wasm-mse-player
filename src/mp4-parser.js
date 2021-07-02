@@ -31,16 +31,18 @@ let mp4parser = BinaryParser.start()
 
 export default class SimpleMp4Parser {
   constructor() {
-    this._write_buf = new ArrayBuffer(64 * 1024 * 1024);
+    this._write_buf = new ArrayBuffer(10 * 1024 * 1024);
     this._buf_pos = 0;
     this._clear_buf_for_debugging = true;
 
     this._counter_in = 0;
     this._counter_out = 0;
     setInterval(() => {
-      if (this._buf_pos > 0) {
-        console.log("WARN: left buffer size in mp4parser:", this._buf_pos);
-      }
+      console.log(
+        "WARN: left buffer size in mp4parser:",
+        this._buf_pos,
+        this._write_buf.slice(0, this._buf_pos)
+      );
     }, 5000);
   }
 
@@ -57,38 +59,6 @@ export default class SimpleMp4Parser {
       return false;
     }
     return true;
-  }
-
-  AppendUint8View(view) {
-    if (this._buf_pos + view.byteLength > this._write_buf.byteLength) {
-      assert(this._buf_pos + view.byteLength <= this._write_buf.byteLength);
-    }
-    this._counter_in += view.byteLength;
-    console.log("parser write_n in:", this._counter_in);
-
-    // copy write data to _write_buf
-    {
-      let buf_view = new Uint8Array(this._write_buf);
-      buf_view.set(view, this._buf_pos);
-      this._buf_pos += view.byteLength;
-    }
-
-    let frag = this.do_parse();
-    if (frag) {
-      this.onFragmentCallback(frag);
-    }
-  }
-
-  RunParseLoop(onFragmentCallback) {
-    this.onFragmentCallback = onFragmentCallback;
-    setInterval(() => {
-      if (this._buf_pos > 0) {
-        let frag = this.do_parse();
-        if (frag) {
-          this.onFragmentCallback(frag);
-        }
-      }
-    }, 1000);
   }
 
   do_parse() {
@@ -133,5 +103,37 @@ export default class SimpleMp4Parser {
     console.log("parser write_n out:", this._counter_out);
 
     return result;
+  }
+
+  AppendUint8View(view) {
+    if (this._buf_pos + view.byteLength > this._write_buf.byteLength) {
+      assert(this._buf_pos + view.byteLength <= this._write_buf.byteLength);
+    }
+    this._counter_in += view.byteLength;
+    console.log("parser write_n in:", this._counter_in);
+
+    // copy write data to _write_buf
+    {
+      let buf_view = new Uint8Array(this._write_buf);
+      buf_view.set(view, this._buf_pos);
+      this._buf_pos += view.byteLength;
+    }
+
+    let frag = this.do_parse();
+    if (frag) {
+      this.onFragmentCallback(frag);
+    }
+  }
+
+  RunParseLoop(onFragmentCallback) {
+    this.onFragmentCallback = onFragmentCallback;
+    setInterval(() => {
+      if (this._buf_pos > 0) {
+        let frag = this.do_parse();
+        if (frag) {
+          this.onFragmentCallback(frag);
+        }
+      }
+    }, 100);
   }
 }

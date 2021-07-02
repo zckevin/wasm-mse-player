@@ -1,7 +1,6 @@
 import * as Comlink from "comlink";
 import { assert, assertNotReached } from "./assert.js";
 
-// import WasmWorker from "./wasm-worker.js";
 import WasmMsePlayer from "./index.js";
 
 /******************************************************/
@@ -106,6 +105,7 @@ function run(videoAb) {
   let readRequest = async (pos, max_read_n) => {
     // add some async to avoid dead lock in atomics.js
     await sleep(1);
+    console.log(`read req: ${pos} - ${pos + max_read_n}`);
     return videoAb.slice(pos, pos + max_read_n);
   };
 

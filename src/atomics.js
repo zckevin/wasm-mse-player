@@ -5,6 +5,99 @@ const SHARED_ARRAY_BUFFER_INDEX = {
   READ_N: 1,
 };
 
+class NonBlockingWriter {
+  constructor(_write_cb) {
+    this._sync_sab = new SharedArrayBuffer(
+      4 * Object.keys(SHARED_ARRAY_BUFFER_INDEX).length
+    );
+    this._sync_int32_array = new Int32Array(this._sync_sab);
+
+    // this._write_cb = _write_cb;
+  }
+
+  NotifyReader() {
+    if (
+      Atomics.load(
+        this._sync_int32_array,
+        SHARED_ARRAY_BUFFER_INDEX.SEMAPHORE
+      ) === 0
+    ) {
+      Atomics.store(
+        this._sync_int32_array,
+        SHARED_ARRAY_BUFFER_INDEX.SEMAPHORE,
+        1
+      );
+      Atomics.notify(
+        this._sync_int32_array,
+        SHARED_ARRAY_BUFFER_INDEX.SEMAPHORE
+      );
+    }
+    // this._write_cb(ab);
+  }
+}
+
+class BlockingReader {
+  constructor(sync_sab, requestReadCallback) {
+    this._sync_int32_array = new Int32Array(sync_sab);
+    this._buffers = [];
+
+    this.requestReadCallback = requestReadCallback;
+  }
+
+  _block_wait(timeout_ms = Infinity) {
+    let result = Atomics.wait(
+      this._sync_int32_array,
+      SHARED_ARRAY_BUFFER_INDEX.SEMAPHORE,
+      0, // main thread set this to 1 on new data
+      timeout_ms
+    );
+    if (result === "timed-out") {
+      return true;
+    }
+    return false;
+  }
+
+  BlockRead(pos, max_read_n) {
+    let self = this;
+    let checkCachedBuffer = function () {
+      if (self._buffers.length > 0) {
+        let ab = self._buffers.shift();
+        if (ab.byteLength > max_read_n) {
+          self._buffers.unshift(ab.slice(max_read_n, ab.byteLength));
+          return ab.slice(0, max_read_n);
+        }
+        return ab;
+      }
+      return null;
+    };
+    let ab = checkCachedBuffer();
+    if (ab) return ab;
+
+    // NON-BLOCKING
+    this.requestReadCallback(pos, max_read_n);
+    Atomics.store(
+      this._sync_int32_array,
+      SHARED_ARRAY_BUFFER_INDEX.SEMAPHORE,
+      0
+    );
+
+    let retry_n = 3;
+    for (let i = 0; i < retry_n; i++) {
+      let ab = checkCachedBuffer();
+      if (ab) return ab;
+
+      // BLOCKING!
+      this._block_wait(1000);
+    }
+    return new ArrayBuffer();
+  }
+
+  Write(ab) {
+    this._buffers.push(ab);
+  }
+}
+
+/*
 class AtomicWriter {
   constructor() {
     this._sync_sab = new SharedArrayBuffer(
@@ -54,12 +147,12 @@ class AtomicReader {
     this.requestReadCallback = requestReadCallback;
   }
 
-  _block_wait(timeout = Infinity) {
+  _block_wait(timeout_ms = Infinity) {
     let result = Atomics.wait(
       this._sync_int32_array,
       SHARED_ARRAY_BUFFER_INDEX.SEMAPHORE,
       0, // main thread set this to 1 on new data
-      timeout
+      timeout_ms
     );
     if (result === "timed-out") {
       return true;
@@ -72,7 +165,7 @@ class AtomicReader {
     this.requestReadCallback(pos, max_read_n);
 
     // BLOCKING!
-    let is_timeout = this._block_wait();
+    let is_timeout = this._block_wait(500);
     if (is_timeout) {
       console.error("InputFileDevice request_read timeout");
       return new ArrayBuffer();
@@ -94,5 +187,12 @@ class AtomicReader {
     return ab;
   }
 }
+*/
 
-export { AtomicReader, AtomicWriter, SHARED_ARRAY_BUFFER_INDEX };
+export {
+  // AtomicReader,
+  // AtomicWriter,
+  // SHARED_ARRAY_BUFFER_INDEX,
+  BlockingReader,
+  NonBlockingWriter,
+};
