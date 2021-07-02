@@ -9,13 +9,14 @@ class InputFileDevice {
     this._buffers = [];
     this._readableCb = null;
     this._ended = false;
+    this._stopped = false;
 
     this.sendReadRequest = sendReadRequest;
   }
 
   setReadableCallback(cb) {
     if (this._buffers.length > 0 || this._ended) {
-      cb(true);
+      cb(this._stopped ? 0 : 1);
       return;
     }
     assert(this._readableCb === null);
@@ -28,7 +29,7 @@ class InputFileDevice {
     }
     const cb = this._readableCb;
     this._readableCb = null;
-    cb(true);
+    cb(this._stopped ? 0 : 1);
   }
 
   append(ab) {

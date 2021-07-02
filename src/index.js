@@ -10,6 +10,7 @@ export default class WasmMsePlayer {
     // stop using Webpack worker-loader, cause it has source map bug.
     // https://github.com/webpack-contrib/worker-loader/issues/245#issuecomment-823566476
     let worker = new Worker(new URL("./wasm-worker.js", import.meta.url));
+    this._raw_worker = worker;
     this._worker = Comlink.wrap(worker);
 
     this._read_cb = read_cb;
@@ -30,6 +31,11 @@ export default class WasmMsePlayer {
       let view = new Uint8Array(ab);
       this._worker.transferAbToWorker(Comlink.transfer(view, [ab]));
     }
+  }
+
+  stop() {
+    this._worker.stop();
+    this._raw_worker.terminate();
   }
 
   run() {

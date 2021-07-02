@@ -8,6 +8,7 @@ import WasmMsePlayer from "./index.js";
 let fragments = [];
 let g_duration = 0;
 let g_codec = "";
+let g_player = null;
 
 function createMse() {
   return new Promise((resolve) => {
@@ -46,6 +47,7 @@ function serialize_parsing_result_to_view(result) {
 async function run_player() {
   let [v, mediaSource] = await createMse();
   mediaSource.duration = g_duration;
+  console.log(g_codec);
   let sb = mediaSource.addSourceBuffer(g_codec);
 
   function appendBuffer(start, end) {
@@ -63,7 +65,12 @@ async function run_player() {
       pos += view.byteLength;
     });
 
-    sb.appendBuffer(tmp);
+    try {
+      sb.appendBuffer(tmp);
+    } catch (err) {
+      console.error("Chrome MSE met err: ", err);
+      g_player.stop();
+    }
   }
 
   setInterval(() => {
@@ -97,11 +104,13 @@ async function run_player() {
   v.play();
 }
 
+/******************************************************/
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function run(videoAb) {
+function runLocalFilePlayer(videoAb) {
   let readRequest = async (pos, max_read_n) => {
     // add some async to avoid dead lock in atomics.js
     await sleep(1);
@@ -134,9 +143,8 @@ function run(videoAb) {
     onFFmpegMsgCallback
   );
   player.run();
+  g_player = player;
 }
-
-/******************************************************/
 
 const fileSelector = document.getElementById("file-selector");
 fileSelector.addEventListener("change", (event) => {
@@ -144,7 +152,64 @@ fileSelector.addEventListener("change", (event) => {
   let reader = new FileReader();
 
   reader.onload = function () {
-    run(reader.result);
+    runLocalFilePlayer(reader.result);
   };
   reader.readAsArrayBuffer(file);
+});
+
+/******************************************************/
+
+async function runHttpPlayer(videoAddr) {
+  let resp = await fetch(videoAddr, { method: "HEAD" });
+  let fileSize = resp.headers.get("content-length");
+  assert(fileSize && fileSize > 0, "invalid file size from http fetch");
+
+  let readRequest = async (pos, max_read_n) => {
+    console.log(`read_cb req: ${pos}, ${pos + max_read_n}-1`);
+    let resp = await fetch(videoAddr, {
+      headers: {
+        range: `bytes=${pos}-${pos + max_read_n - 1}`,
+      },
+    });
+    console.log(resp);
+    assert(resp.ok, "response not ok");
+    let buf = await resp.arrayBuffer();
+    return buf;
+  };
+
+  let onFragment = (fragment) => {
+    fragments.push(fragment);
+  };
+
+  let onFFmpegMsgCallback = (msg) => {
+    console.log("onFFmpegMsg", msg);
+    if (msg.cmd == "meta_info") {
+      assert(msg.duration && msg.duration > 0, "msg.duration is invalid");
+      assert(msg.codec && msg.codec.length > 0, "msg.codec is invalid");
+      alert(JSON.stringify(msg));
+
+      g_duration = msg.duration;
+      g_codec = `video/mp4; codecs="${msg.codec}, mp4a.40.2"`;
+
+      run_player();
+    }
+  };
+
+  let player = new WasmMsePlayer(
+    fileSize,
+    readRequest,
+    onFragment,
+    onFFmpegMsgCallback
+  );
+  player.run();
+  g_player = player;
+}
+
+const inputElm = document.getElementById("video-addr");
+inputElm.addEventListener("keydown", function (event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    console.log(inputElm.value);
+    runHttpPlayer(inputElm.value);
+  }
 });

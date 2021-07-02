@@ -57,15 +57,8 @@ class WasmWorker {
 
   _runFFmpeg(Module) {
     // const cmd = `ffmpeg -v trace -i input.file`
-    const cmd = `ffmpeg -y \
-      -loglevel debug \
-      -i input.file
-      -c:v copy \
-      -c:a aac \
-      -channel_layout stereo \
-      -movflags frag_keyframe+empty_moov+default_base_moof \
-      -frag_size 5000000 \
-      -f mov output.mp4`;
+    // TODO: make this multiline
+    const cmd = `ffmpeg -y -loglevel debug -i input.file -c:v copy -c:a aac -channel_layout stereo -movflags frag_keyframe+empty_moov+default_base_moof -frag_size 5000000 -f mov output.mp4`;
 
     // create char** argv
     const args = cmd.split(" ");
@@ -113,6 +106,10 @@ class WasmWorker {
     } catch (err) {
       console.log("transferAb err", err);
     }
+  }
+
+  stop() {
+    this.inputFile._stopped = true;
   }
 
   run() {
