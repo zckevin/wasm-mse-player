@@ -38,7 +38,7 @@ class WasmWorker {
     this.onFFmpegMsgCallback = onFFmpegMsgCallback;
 
     this.inputFile = new InputFileDevice(file_size, sendReadRequest);
-    this.outputFile = new OutputFileDevice(onFragmentCallback);
+    this.outputFile = new OutputFileDevice(file_size, onFragmentCallback);
 
     globalThis.waitReadable = (callback) => {
       this.inputFile.setReadableCallback(callback);
@@ -58,7 +58,7 @@ class WasmWorker {
   _runFFmpeg(Module) {
     // const cmd = `ffmpeg -v trace -i input.file`
     // TODO: make this multiline
-    const cmd = `ffmpeg -y -loglevel debug -i input.file -c:v copy -c:a aac -channel_layout stereo -movflags frag_keyframe+empty_moov+default_base_moof -frag_size 5000000 -f mov output.mp4`;
+    const cmd = `ffmpeg -y -loglevel info -i input.file -c:v copy -c:a aac -channel_layout stereo -movflags frag_keyframe+empty_moov+default_base_moof -frag_size 5000000 -f mov output.mp4`;
 
     // create char** argv
     const args = cmd.split(" ");

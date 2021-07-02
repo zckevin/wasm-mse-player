@@ -31,7 +31,8 @@ let mp4parser = BinaryParser.start()
 
 export default class SimpleMp4Parser {
   constructor() {
-    this._write_buf = new ArrayBuffer(10 * 1024 * 1024);
+    // TODO: figure out max buf_n needed
+    this._write_buf = new ArrayBuffer(16 * 1024 * 1024);
     this._buf_pos = 0;
     this._clear_buf_for_debugging = true;
 
@@ -40,8 +41,8 @@ export default class SimpleMp4Parser {
     setInterval(() => {
       console.log(
         "WARN: left buffer size in mp4parser:",
-        this._buf_pos,
-        this._write_buf.slice(0, this._buf_pos)
+        this._buf_pos
+        // this._write_buf.slice(0, this._buf_pos)
       );
     }, 5000);
   }
@@ -105,7 +106,22 @@ export default class SimpleMp4Parser {
     return result;
   }
 
-  AppendUint8View(view) {
+  rewriteData(file_position, view) {
+    assert(
+      file_position >= this._counter_out &&
+        file_position + view.byteLength <= this._counter_in,
+      "rewriteData invalid position"
+    );
+    let relative_pos = file_position - this._counter_out;
+    let buf_view = new Uint8Array(this._write_buf);
+    buf_view.set(view, relative_pos);
+  }
+
+  AppendUint8View(file_position, view) {
+    if (file_position < this._counter_in) {
+      this.rewriteData(file_position, view);
+      return;
+    }
     if (this._buf_pos + view.byteLength > this._write_buf.byteLength) {
       assert(this._buf_pos + view.byteLength <= this._write_buf.byteLength);
     }

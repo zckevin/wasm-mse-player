@@ -1,10 +1,12 @@
+'use strict'
+
 import { assert, assertNotReached } from "./assert.js";
 import SimpleMp4Parser from "./mp4-parser.js";
 
 class InputFileDevice {
   constructor(file_size, sendReadRequest) {
-    this._buf_pos = 0;
     this._file_size = file_size;
+    this._pos = 0;
 
     this._buffers = [];
     this._readableCb = null;
@@ -14,6 +16,7 @@ class InputFileDevice {
     this.sendReadRequest = sendReadRequest;
   }
 
+  // called by waitReadable by FFmpeg's async sleep function waitReadable
   setReadableCallback(cb) {
     if (this._buffers.length > 0 || this._ended) {
       cb(this._stopped ? 0 : 1);
@@ -120,7 +123,10 @@ class InputFileDevice {
 }
 
 class OutputFileDevice {
-  constructor(onFragmentCallback) {
+  constructor(file_size, onFragmentCallback) {
+    this._file_size = file_size;
+    this._pos = 0;
+
     this._parser = new SimpleMp4Parser();
     this._parser.RunParseLoop(onFragmentCallback);
   }
@@ -154,7 +160,7 @@ class OutputFileDevice {
    */
   write(stream, buffer, offset, length, position) {
     let view = buffer.subarray(offset, offset + length);
-    this._parser.AppendUint8View(view);
+    this._parser.AppendUint8View(position, view);
     return length;
   }
 
