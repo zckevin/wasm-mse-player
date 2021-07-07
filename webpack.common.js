@@ -3,11 +3,10 @@ const webpack = require("webpack");
 // const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
-  entry: "./src/app.js",
+  entry: "./index.js",
   output: {
     libraryTarget: "umd",
     umdNamedDefine: true,
-
     path: path.resolve(__dirname, "dist"),
     filename: "bundle.js",
   },
