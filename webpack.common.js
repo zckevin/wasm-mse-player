@@ -1,20 +1,21 @@
-const path = require('path');
+const path = require("path");
+const webpack = require("webpack");
 // const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
-  entry: './src/app.js',
+  entry: "./src/app.js",
   output: {
-    libraryTarget: 'umd',
+    libraryTarget: "umd",
     umdNamedDefine: true,
 
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
+    path: path.resolve(__dirname, "dist"),
+    filename: "bundle.js",
   },
   module: {
     rules: [
       {
         test: /\.js$/,
-        loader: 'babel-loader',
+        loader: "babel-loader",
       },
     ],
   },
@@ -24,11 +25,17 @@ module.exports = {
     //     { from: "public" },
     //   ],
     // }),
+    new webpack.ProvidePlugin({
+      process: "process/browser",
+    }),
+    new webpack.ProvidePlugin({
+      Buffer: ["buffer", "Buffer"],
+    }),
   ],
   resolve: {
     fallback: {
-      fs: false
-    }
-  }
+      fs: false,
+      stream: require.resolve("stream-browserify"),
+    },
+  },
 };
-

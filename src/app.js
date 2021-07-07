@@ -3,6 +3,8 @@ import { assert, assertNotReached } from "./assert.js";
 
 import WasmMsePlayer from "./index.js";
 
+import { streamToBuffer } from "@jorgeferrero/stream-to-buffer";
+
 /******************************************************/
 
 let fragments = [];
@@ -205,11 +207,81 @@ async function runHttpPlayer(videoAddr) {
   g_player = player;
 }
 
+/******************************************************/
+
+async function runWebttorrentPlayer(torrentId) {
+  function runPlayer(file) {
+    const fileSize = file.length;
+    assert(fileSize && fileSize > 0, "invalid file size");
+
+    let readRequest = async (pos, max_read_n) => {
+      console.log(`read_cb req: ${pos}, ${pos + max_read_n}-1`);
+      const fst = file.createReadStream({
+        start: pos,
+        end: pos + max_read_n - 1, // inclusive
+      });
+      const view = await streamToBuffer(fst);
+      return view.buffer;
+    };
+
+    let onFragment = (fragment) => {
+      fragments.push(fragment);
+    };
+
+    let onFFmpegMsgCallback = (msg) => {
+      console.log("onFFmpegMsg", msg);
+      if (msg.cmd == "meta_info") {
+        assert(msg.duration && msg.duration > 0, "msg.duration is invalid");
+        assert(msg.codec && msg.codec.length > 0, "msg.codec is invalid");
+        alert(JSON.stringify(msg));
+
+        g_duration = msg.duration;
+        g_codec = `video/mp4; codecs="${msg.codec}, mp4a.40.2"`;
+
+        run_player();
+      }
+    };
+
+    let player = new WasmMsePlayer(
+      fileSize,
+      readRequest,
+      onFragment,
+      onFFmpegMsgCallback
+    );
+    player.run();
+    g_player = player;
+  }
+
+  // function from web script in html
+  assert(createWebtorrentClient, "createWebtorrentClient() is not loaded");
+  const client = await createWebtorrentClient(torrentId);
+  client.on("torrent", (torrent) => {
+    let max_size = 0;
+    let choosen_file = null;
+    torrent.files.forEach((file) => {
+      if (file.length > max_size) {
+        max_size = file.length;
+        choosen_file = file;
+      }
+    });
+    assert(choosen_file, "no file is choosen");
+    runPlayer(choosen_file);
+  });
+
+  client.on("error", (err) => {
+    console.error(err);
+    throw err;
+  });
+}
+
+/******************************************************/
+
 const inputElm = document.getElementById("video-addr");
 inputElm.addEventListener("keydown", function (event) {
   if (event.key === "Enter") {
     event.preventDefault();
     console.log(inputElm.value);
-    runHttpPlayer(inputElm.value);
+    // runHttpPlayer(inputElm.value);
+    runWebttorrentPlayer(inputElm.value);
   }
 });

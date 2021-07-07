@@ -21,6 +21,9 @@
   "dependencies": {
     "@babel/runtime": "^7.14.6",
     "binary-parser": "^1.9.1",
-    "comlink": "^4.3.1"
+    "buffer": "^6.0.3",
+    "comlink": "^4.3.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0"
   }
 }
