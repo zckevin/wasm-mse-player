@@ -2,8 +2,14 @@
 
 import * as Comlink from "comlink";
 
+/*
+ * @file_size: Number
+ * @onReadCb: Function (pos: Number, max_read_n: Number): return ArrayBuffer
+ * @onFragmentCb: Function (fragment: Mp4ParsingResult)
+ * @onFFmpegMsgCb: Function (msg: PlainOldObject)
+ */
 export default class WasmMsePlayer {
-  constructor(file_size, read_cb, onFragmentCb, onFFmpegMsgCb) {
+  constructor(file_size, onReadCb, onFragmentCb, onFFmpegMsgCb) {
     this._file_size = file_size;
 
     // stop using Webpack worker-loader, which has a chrome related source map bug.
@@ -13,7 +19,7 @@ export default class WasmMsePlayer {
     this._raw_worker = worker;
     this._worker = Comlink.wrap(worker);
 
-    this._read_cb = read_cb;
+    this._read_cb = onReadCb
     this._on_fragment = onFragmentCb;
     this._on_ffmpeg_msg = onFFmpegMsgCb;
   }
