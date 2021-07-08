@@ -14,16 +14,19 @@ export default class WasmMsePlayer {
 
     // stop using Webpack worker-loader, which has a chrome related source map bug.
     // https://github.com/webpack-contrib/worker-loader/issues/245#issuecomment-823566476
-    const worker = new Worker(new URL("./src/wasm-worker.js", import.meta.url));
+    const worker = new Worker(
+      new URL("./src/wasm-worker.web.js", import.meta.url)
+    );
 
     this._raw_worker = worker;
     this._worker = Comlink.wrap(worker);
 
-    this._read_cb = onReadCb
+    this._read_cb = onReadCb;
     this._on_fragment = onFragmentCb;
     this._on_ffmpeg_msg = onFFmpegMsgCb;
   }
 
+  // wrapper function to send ArrayBuffer to worker
   async _send_read_request(pos, max_read_n) {
     let ab;
     try {

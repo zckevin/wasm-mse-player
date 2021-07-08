@@ -1,14 +1,11 @@
 "use strict";
 
-import * as Comlink from "comlink";
-
-import factory from "../dist/ffmpeg.js";
 import { assert, assertNotReached } from "./assert.js";
 import { OutputFileDevice, InputFileDevice } from "./vfs.js";
 
 class WasmWorker {
-  constructor() {
-    let emscriten_config = {
+  constructor(WasmFactory) {
+    const emscriten_config = {
       preRun: [
         () => {
           const fs = emscriten_config.FS;
@@ -32,6 +29,8 @@ class WasmWorker {
     };
     this.emscriten_config = emscriten_config;
     this._module = null;
+
+    this.wasm_factory = WasmFactory;
   }
 
   init(file_size, onFragmentCallback, onFFmpegMsgCallback, sendReadRequest) {
@@ -58,7 +57,25 @@ class WasmWorker {
   _runFFmpeg(Module) {
     // const cmd = `ffmpeg -v trace -i input.file`
     // TODO: make this multiline
-    const cmd = `ffmpeg -y -loglevel info -i input.file -c:v copy -c:a aac -channel_layout stereo -movflags frag_keyframe+empty_moov+default_base_moof -frag_size 5000000 -f mov output.mp4`;
+    const cmd =
+      "ffmpeg " +
+      // confirm on file overwitten
+      "-y " +
+      // disable interaction on standard input
+      "-nostdin " +
+      "-loglevel info " +
+      "-i input.file " +
+      // video codec copy, audio codec to AAC LC
+      "-c:v copy -c:a aac " +
+      // configure AAC channel info, without it MSE may throw errro
+      "-channel_layout stereo " +
+      // generate Fmp4
+      "-movflags frag_keyframe+empty_moov+default_base_moof " +
+      // max moov+moof size: 5MB
+      "-frag_size 5000000 " +
+      // output container format MP4/MOV
+      "-f mov " +
+      "output.mp4";
 
     // create char** argv
     const args = cmd.split(" ");
@@ -113,14 +130,12 @@ class WasmWorker {
   }
 
   run() {
-    factory(this.emscriten_config).then((Module) => {
+    // factory(this.emscriten_config).then((Module) => {
+    this.wasm_factory(this.emscriten_config).then((Module) => {
       this._module = Module;
       this._runFFmpeg(Module);
     });
   }
 }
 
-let _worker = new WasmWorker();
-Comlink.expose(_worker);
-
-export default _worker;
+export default WasmWorker;

@@ -1,10 +1,11 @@
 {
   "name": "wasm-mse-player",
   "version": "0.0.1",
+  "main": "./dist/bundle.js",
   "scripts": {
-    "dev": "webpack --config webpack.dev.js --watch",
-    "start": "webpack --config webpack.dev.js --stats-children",
-    "build": "webpack --config webpack.prod.js"
+    "dev": "webpack --config webpack.dev.cjs --watch",
+    "start": "webpack --config webpack.dev.cjs --stats-children",
+    "build": "webpack --config webpack.prod.cjs"
   },
   "devDependencies": {
     "@babel/cli": "^7.14.5",
@@ -26,5 +27,7 @@
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0"
   },
-  "main": "./dist/bundle.js"
+  "browser": {
+    "./wasm/ffmpeg.node.js": false
+  }
 }
