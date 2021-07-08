@@ -1,16 +1,16 @@
 import { Parser as BinaryParser } from "binary-parser";
-import { assert, assertNotReached } from "./assert.js";
+import { assert } from "./assert.js";
 
 // `length`: u32, `atom_type`: u32
-let buf_parser = BinaryParser.start().buffer("buf", {
+const buf_parser = BinaryParser.start().buffer("buf", {
   length: "$parent.length - 4 - 4",
 });
 
 // if data corruption happens, result.data.buf will be nill
 // check in this.is_parsing_error_met()
-let error_parser = BinaryParser.start();
+const error_parser = BinaryParser.start();
 
-let mp4parser = BinaryParser.start()
+const mp4_parser = BinaryParser.start()
   .endianess("big")
   .uint32("length")
   .string("atom_type", {
@@ -55,19 +55,30 @@ export default class SimpleMp4Parser {
   }
 
   is_meaningful_parsing_result(result) {
-    // BinaryParser dose not check Buffer length
+    // BinaryParser dose not check buffer length,
+    // which just using buffer.slice(start, start + length),
+    // so it may early return when data is not fullfilled yet.
     if (result.data.buf.byteLength + 4 + 4 !== result.length) {
       return false;
     }
     return true;
   }
 
+  /*
+   * return result type
+   *
+   * @length: Number
+   * @atom_type: String
+   * @data {
+   *   @buf: Uint8Array
+   * }
+   */
   do_parse() {
     // call BinaryParser
     let result;
     try {
       let view = new Uint8Array(this._write_buf, 0, this._buf_pos);
-      result = mp4parser.parse(view);
+      result = mp4_parser.parse(view);
     } catch (err) {
       if (err instanceof RangeError) {
         // error means need more data
