@@ -22,7 +22,8 @@ class InputFileDevice {
       cb(this._stopped ? 0 : 1);
       return;
     }
-    assert(this._readableCb === null);
+    // last read() ret 0 twice and return EAGIN, _readable_cb is not drained.
+    // assert(this._readableCb === null);
     this._readableCb = cb;
   }
 

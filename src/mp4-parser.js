@@ -77,7 +77,7 @@ export default class SimpleMp4Parser {
     // call BinaryParser
     let result;
     try {
-      let view = new Uint8Array(this._write_buf, 0, this._buf_pos);
+      const view = new Uint8Array(this._write_buf, 0, this._buf_pos);
       result = mp4_parser.parse(view);
     } catch (err) {
       if (err instanceof RangeError) {
@@ -101,10 +101,10 @@ export default class SimpleMp4Parser {
 
     // move left data to head of _write_buf
     // .slice() make a copy, so we could do .fill(0) safely
-    let left_ab = this._write_buf.slice(result.length, this._buf_pos);
+    const left_ab = this._write_buf.slice(result.length, this._buf_pos);
     this._buf_pos = left_ab.byteLength;
     {
-      let view = new Uint8Array(this._write_buf);
+      const view = new Uint8Array(this._write_buf);
       if (this._clear_buf_for_debugging) {
         view.fill(0);
       }
@@ -123,30 +123,33 @@ export default class SimpleMp4Parser {
         file_position + view.byteLength <= this._counter_in,
       "rewriteData invalid position"
     );
-    let relative_pos = file_position - this._counter_out;
-    let buf_view = new Uint8Array(this._write_buf);
+    const relative_pos = file_position - this._counter_out;
+    const buf_view = new Uint8Array(this._write_buf);
     buf_view.set(view, relative_pos);
   }
 
   AppendUint8View(file_position, view) {
+    assert(
+      this._buf_pos + view.byteLength <= this._write_buf.byteLengthm,
+      "mp4-parser AppendUint8View invalid file position"
+    );
+    // FFmpeg mov muxer seek back and rewrite data in moof
     if (file_position < this._counter_in) {
       this.rewriteData(file_position, view);
       return;
     }
-    if (this._buf_pos + view.byteLength > this._write_buf.byteLength) {
-      assert(this._buf_pos + view.byteLength <= this._write_buf.byteLength);
-    }
+
     this._counter_in += view.byteLength;
     console.log("parser write_n in:", this._counter_in);
 
     // copy write data to _write_buf
     {
-      let buf_view = new Uint8Array(this._write_buf);
+      const buf_view = new Uint8Array(this._write_buf);
       buf_view.set(view, this._buf_pos);
       this._buf_pos += view.byteLength;
     }
 
-    let frag = this.do_parse();
+    const frag = this.do_parse();
     if (frag) {
       this.onFragmentCallback(frag);
     }
@@ -156,7 +159,7 @@ export default class SimpleMp4Parser {
     this.onFragmentCallback = onFragmentCallback;
     setInterval(() => {
       if (this._buf_pos > 0) {
-        let frag = this.do_parse();
+        const frag = this.do_parse();
         if (frag) {
           this.onFragmentCallback(frag);
         }

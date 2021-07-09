@@ -29,7 +29,7 @@ const config = {
                             template: './public/index.html'
                         }),
         new IgnorePlugin(/^\.\/locale$/, /moment$/),
-        new HotModuleReplacementPlugin(),
+        // new HotModuleReplacementPlugin(),
         new VueLoaderPlugin()
     ],
     module: {

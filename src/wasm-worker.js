@@ -39,6 +39,7 @@ class WasmWorker {
     this.inputFile = new InputFileDevice(file_size, sendReadRequest);
     this.outputFile = new OutputFileDevice(file_size, onFragmentCallback);
 
+    // called from FFmpeg
     globalThis.waitReadable = (callback) => {
       this.inputFile.setReadableCallback(callback);
     };
@@ -50,7 +51,7 @@ class WasmWorker {
       this.onFFmpegMsgCallback,
       "onFFmpegMsgCallback should not be undefined"
     );
-    let msg = JSON.parse(this._module.UTF8ToString(utf8text));
+    const msg = JSON.parse(this._module.UTF8ToString(utf8text));
     this.onFFmpegMsgCallback(msg);
   }
 
@@ -103,7 +104,7 @@ class WasmWorker {
 
     try {
       // vi => void(int)
-      var cb = Module.addFunction(
+      const cb = Module.addFunction(
         this._ffmpeg_callback_delegate.bind(this),
         "vi"
       );
@@ -118,7 +119,7 @@ class WasmWorker {
   // TODO: remove this later
   transferAbToWorker(view) {
     try {
-      let ab = view.buffer;
+      const ab = view.buffer;
       this.inputFile.append(ab);
     } catch (err) {
       console.log("transferAb err", err);
