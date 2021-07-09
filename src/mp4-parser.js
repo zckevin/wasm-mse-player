@@ -130,7 +130,7 @@ export default class SimpleMp4Parser {
 
   AppendUint8View(file_position, view) {
     assert(
-      this._buf_pos + view.byteLength <= this._write_buf.byteLengthm,
+      this._buf_pos + view.byteLength <= this._write_buf.byteLength,
       "mp4-parser AppendUint8View invalid file position"
     );
     // FFmpeg mov muxer seek back and rewrite data in moof
