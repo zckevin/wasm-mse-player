@@ -1,4 +1,4 @@
-'use strict'
+"use strict";
 
 import { assert, assertNotReached } from "./assert.js";
 import SimpleMp4Parser from "./mp4-parser.js";
@@ -42,12 +42,13 @@ class InputFileDevice {
   }
 
   open(stream, path, flags) {
+    // FFmpeg need corrent file size to do seek,
+    // so web manually overwrite file size in returned inode data.
     if (!stream.node.node_ops.getattr._swapped) {
-      let original = stream.node.node_ops.getattr;
-      let proxy_func = function (...args) {
+      const original = stream.node.node_ops.getattr;
+      const proxy_func = function (...args) {
         let attr = original(...args);
         attr.size = this._file_size;
-        console.log(`getattr return file_size: ${this._file_size}`);
         return attr;
       };
       stream.node.node_ops.getattr = proxy_func.bind(this);
