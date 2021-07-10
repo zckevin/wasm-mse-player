@@ -1,7 +1,6 @@
 "use strict";
 
 import { assert, assertNotReached } from "./assert.js";
-import SimpleMp4Parser from "./mp4-parser.js";
 
 class InputFileDevice {
   constructor(file_size, sendReadRequest) {
@@ -125,12 +124,10 @@ class InputFileDevice {
 }
 
 class OutputFileDevice {
-  constructor(file_size, onFragmentCallback) {
+  constructor(file_size, parser) {
     this._file_size = file_size;
+    this._parser = parser;
     this._pos = 0;
-
-    this._parser = new SimpleMp4Parser();
-    this._parser.RunParseLoop(onFragmentCallback);
   }
 
   open(stream, path, flags) {

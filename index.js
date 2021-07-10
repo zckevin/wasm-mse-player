@@ -9,9 +9,13 @@ import * as Comlink from "comlink";
  * @onFFmpegMsgCb: Function (msg: PlainOldObject)
  */
 export default class WasmMsePlayer {
-  constructor(file_size, onReadCb, onFragmentCb, onFFmpegMsgCb) {
-    this._file_size = file_size;
-
+  constructor(
+    file_size,
+    onReadCb,
+    onFragmentCb,
+    onFFmpegMsgCb,
+    pauseDecodeIfNeeded
+  ) {
     // stop using Webpack worker-loader, which has a chrome related source map bug.
     // https://github.com/webpack-contrib/worker-loader/issues/245#issuecomment-823566476
     const worker = new Worker(
@@ -22,8 +26,15 @@ export default class WasmMsePlayer {
     this._worker = Comlink.wrap(worker);
 
     this._read_cb = onReadCb;
-    this._on_fragment = onFragmentCb;
-    this._on_ffmpeg_msg = onFFmpegMsgCb;
+
+    this._worker.init(
+      file_size,
+      Comlink.proxy(onFragmentCb),
+      Comlink.proxy(onFFmpegMsgCb),
+      Comlink.proxy(this._send_read_request.bind(this)),
+      Comlink.proxy(pauseDecodeIfNeeded)
+    );
+    this._worker.run();
   }
 
   // wrapper function to send ArrayBuffer to worker
@@ -45,15 +56,5 @@ export default class WasmMsePlayer {
   stop() {
     this._worker.stop();
     this._raw_worker.terminate();
-  }
-
-  run() {
-    this._worker.init(
-      this._file_size,
-      Comlink.proxy(this._on_fragment.bind(this)),
-      Comlink.proxy(this._on_ffmpeg_msg.bind(this)),
-      Comlink.proxy(this._send_read_request.bind(this))
-    );
-    this._worker.run();
   }
 }

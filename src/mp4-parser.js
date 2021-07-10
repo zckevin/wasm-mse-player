@@ -155,6 +155,10 @@ export default class SimpleMp4Parser {
     }
   }
 
+  ClearBuffer() {
+    this._buf_pos = 0;
+  }
+
   RunParseLoop(onFragmentCallback) {
     this.onFragmentCallback = onFragmentCallback;
     setInterval(() => {

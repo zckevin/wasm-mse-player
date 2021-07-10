@@ -2,6 +2,7 @@
 
 import { assert, assertNotReached } from "./assert.js";
 import { OutputFileDevice, InputFileDevice } from "./vfs.js";
+import SimpleMp4Parser from "./mp4-parser.js";
 
 class WasmWorker {
   constructor(WasmFactory) {
@@ -33,16 +34,60 @@ class WasmWorker {
     this.wasm_factory = WasmFactory;
   }
 
-  init(file_size, onFragmentCallback, onFFmpegMsgCallback, sendReadRequest) {
+  init(
+    file_size,
+    onFragmentCallback,
+    onFFmpegMsgCallback,
+    sendReadRequest,
+    pauseDecodeIfNeededCallback
+  ) {
     this.onFFmpegMsgCallback = onFFmpegMsgCallback;
 
     this.inputFile = new InputFileDevice(file_size, sendReadRequest);
-    this.outputFile = new OutputFileDevice(file_size, onFragmentCallback);
 
+    this.mp4Parser = new SimpleMp4Parser();
+    this.mp4Parser.RunParseLoop(onFragmentCallback);
+    this.outputFile = new OutputFileDevice(file_size, this.mp4Parser);
+
+    /************************************************************************/
     // called from FFmpeg
-    globalThis.waitReadable = (callback) => {
-      this.inputFile.setReadableCallback(callback);
+    /************************************************************************/
+    globalThis.waitReadable = (wakeup) => {
+      this.inputFile.setReadableCallback(wakeup);
     };
+
+    // @wakeup: Function
+    // @cur_pkt_ts: Double
+    globalThis.pauseDecodeIfNeeded = (wakeup, cur_pkt_seconds, at_eof) => {
+      console.log(cur_pkt_seconds, at_eof);
+
+      // decode met video end, wait until seek back
+      if (at_eof) {
+        this.wakeupPausedAtEof = wakeup;
+        return;
+      }
+
+      // wakeup();
+      pauseDecodeIfNeededCallback(wakeup, cur_pkt_seconds);
+    };
+    /************************************************************************/
+  }
+
+  // @targetTime: Double
+  seek(targetTime) {
+    // assert targetTime is in video stream time range
+
+    // clear left stashed output data/fragments in parser
+    this.mp4Parser.ClearBuffer();
+
+    // send cmd to FFmpeg
+    this._module._wasm_do_seek(targetTime);
+
+    // wakeup paused FFmpeg if needed
+    if (this.wakeupPausedAtEof) {
+      this.wakeupPausedAtEof();
+      this.wakeupPausedAtEof = null;
+    }
   }
 
   // this.onFFmpegMsgCallback is a JSProxy, wrap it up using a function
@@ -58,25 +103,28 @@ class WasmWorker {
   _runFFmpeg(Module) {
     // const cmd = `ffmpeg -v trace -i input.file`
     // TODO: make this multiline
-    const cmd =
-      "ffmpeg " +
+    const cmd = [
+      "ffmpeg",
       // confirm on file overwitten
-      "-y " +
+      "-y",
       // disable interaction on standard input
-      "-nostdin " +
-      "-loglevel info " +
-      "-i input.file " +
+      "-nostdin",
+      "-loglevel info",
+      "-i input.file",
       // video codec copy, audio codec to AAC LC
-      "-c:v copy -c:a aac " +
+      "-c:v copy -c:a aac",
       // configure AAC channel info, without it MSE may throw errro
-      "-channel_layout stereo " +
+      "-channel_layout stereo",
       // generate Fmp4
-      "-movflags frag_keyframe+empty_moov+default_base_moof " +
+      "-movflags frag_keyframe+empty_moov+default_base_moof",
       // max moov+moof size: 5MB
-      "-frag_size 5000000 " +
+      "-frag_size 5000000",
+      // max fragment duration 1000ms
+      // "-frag_duration 1000",
       // output container format MP4/MOV
-      "-f mov " +
-      "output.mp4";
+      "-f mov",
+      "output.mp4",
+    ].join(" ");
 
     // create char** argv
     const args = cmd.split(" ");
@@ -103,7 +151,8 @@ class WasmWorker {
     );
 
     try {
-      // vi => void(int)
+      // Add JavaScript function to wasm table
+      // vi means void(int)
       const cb = Module.addFunction(
         this._ffmpeg_callback_delegate.bind(this),
         "vi"

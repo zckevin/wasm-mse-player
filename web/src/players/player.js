@@ -5,12 +5,15 @@ let g_config = {
   duration: 0,
   codec: "",
   player: null,
+  videoElement: null,
+  mediaSource: null,
 };
 
 function createMse() {
   return new Promise((resolve) => {
-    const v = document.getElementsByTagName("video")[0];
-    assert(v, "video element not found?");
+    // const v = document.getElementsByTagName("video")[0];
+    // assert(v, "video element not found?");
+    const v = document.createElement("video");
 
     const mediaSource = new MediaSource();
     const url = URL.createObjectURL(mediaSource);
@@ -20,6 +23,7 @@ function createMse() {
     });
 
     v.src = url;
+    document.body.appendChild(v)
   });
 }
 
@@ -66,7 +70,9 @@ function appendBuffer(sb, start, end) {
 }
 
 async function RunPlayer() {
-  const [v, mediaSource] = await createMse();
+  const v = g_config.videoElement;
+  const mediaSource = g_config.mediaSource;
+
   mediaSource.duration = g_config.duration;
   console.log(g_config.codec);
 
@@ -120,6 +126,12 @@ g_config.onFFmpegMsgCallback = (msg) => {
     g_config.run_player();
   }
 };
+
+(async function(){
+  const [v, mediaSource] = await createMse();
+  g_config.videoElement = v;
+  g_config.mediaSource = mediaSource;
+})();
 
 g_config.run_player = RunPlayer;
 
