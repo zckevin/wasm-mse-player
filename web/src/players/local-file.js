@@ -28,7 +28,10 @@ function runLocalFilePlayer(videoAb) {
     readRequest,
     g_config.onFragment,
     g_config.onFFmpegMsgCallback,
-    controller.pauseDecodeIfNeeded,
+    controller.pauseDecodeIfNeeded.bind(controller)
+  );
+  controller.setWakeupCallback(
+    player._worker.wakeupWrapper.bind(player._worker)
   );
   g_config.player = player;
 }

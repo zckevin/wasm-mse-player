@@ -48,26 +48,39 @@ class SimpleMaxBufferTimeController {
     this.ffmpegLatestPacketPts = 0;
 
     // seconds
-    this.maxBufferTime = 10;
+    this.maxBufferTime = 5;
 
-    // The progress event is fired periodically as the browser loads a resource
-    this.videoElement.addEventListener("progress", this.shouldWakeupNow);
-    this.videoElement.addEventListener("seeking", this.shouldWakeupNow);
+    // this.videoElement.addEventListener("progress", this.shouldWakeupNow.bind(this));
+    this.videoElement.addEventListener(
+      "timeupdate",
+      this.shouldWakeupNow.bind(this)
+    );
+    this.videoElement.addEventListener(
+      "seeking",
+      this.shouldWakeupNow.bind(this)
+    );
   }
 
   shouldWakeupNow() {
-    const currentTime = this.videoElement.currentTime;
-    const ranges = new TimeRangesHelper(this.videoElement.buffered);
-    const timeAhead = ranges.bufferedTimeAhead(currentTime);
+    try {
+      const currentTime = this.videoElement.currentTime;
+      const ranges = new TimeRangesHelper(this.videoElement.buffered);
+      const timeAhead = ranges.bufferedTimeAhead(currentTime);
 
-    if (timeAhead < this.maxBufferTime && this.wakeupFFmpeg) {
-      this.wakeupFFmpeg();
-      this.wakeupFFmpeg = null;
+      console.log(`curtime ${currentTime}, timeAhead ${timeAhead}`);
+      if (timeAhead < this.maxBufferTime) {
+        this.wakeupFFmpeg();
+      }
+    } catch (err) {
+      console.log(err);
     }
   }
 
-  pauseDecodeIfNeeded(wakeup, cur_pkt_seconds) {
-    this.wakeupFFmpeg = wakeup;
+  setWakeupCallback(cb) {
+    this.wakeupFFmpeg = cb;
+  }
+
+  pauseDecodeIfNeeded(cur_pkt_seconds) {
     this.ffmpegLatestPacketPts = cur_pkt_seconds;
     this.shouldWakeupNow();
   }

@@ -14,6 +14,7 @@ function createMse() {
     // const v = document.getElementsByTagName("video")[0];
     // assert(v, "video element not found?");
     const v = document.createElement("video");
+    v.style.width = "480px";
 
     const mediaSource = new MediaSource();
     const url = URL.createObjectURL(mediaSource);
@@ -23,7 +24,7 @@ function createMse() {
     });
 
     v.src = url;
-    document.body.appendChild(v)
+    document.body.appendChild(v);
   });
 }
 
@@ -127,7 +128,7 @@ g_config.onFFmpegMsgCallback = (msg) => {
   }
 };
 
-(async function(){
+(async function () {
   const [v, mediaSource] = await createMse();
   g_config.videoElement = v;
   g_config.mediaSource = mediaSource;

@@ -68,9 +68,22 @@ class WasmWorker {
       }
 
       // wakeup();
-      pauseDecodeIfNeededCallback(wakeup, cur_pkt_seconds);
+      assert(!this.wakeupPaused, "this.wakeupPaused should be drained");
+      this.wakeupPaused = wakeup;
+      pauseDecodeIfNeededCallback(cur_pkt_seconds);
     };
     /************************************************************************/
+  }
+
+  wakeupWrapper() {
+    if (this.wakeupPaused) {
+      // order matters
+      // wakupPaused will call pauseDecodeIfNeeded,
+      // this.wakeupPaused should be cleared before call
+      const wakeup = this.wakeupPaused;
+      this.wakeupPaused = null;
+      wakeup();
+    }
   }
 
   // @targetTime: Double
