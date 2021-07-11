@@ -1,5 +1,5 @@
 const path = require("path");
-const { HotModuleReplacementPlugin, IgnorePlugin } = require("webpack");
+const { IgnorePlugin } = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const { VueLoaderPlugin } = require("vue-loader");
 
@@ -12,11 +12,9 @@ const config = {
   },
   devServer: {
     contentBase: false,
-    // publicPath: './dist',
     hot: true,
     port: 8080,
     open: false,
-    // hotOnly: true,
     compress: true,
     overlay: true,
   },
@@ -29,7 +27,6 @@ const config = {
       template: "./public/index.html",
     }),
     new IgnorePlugin(/^\.\/locale$/, /moment$/),
-    // new HotModuleReplacementPlugin(),
     new VueLoaderPlugin(),
   ],
   module: {
@@ -42,7 +39,6 @@ const config = {
           {
             loader: "babel-loader",
             options: {
-              // cacheDirectory: true,
               presets: ["@babel/preset-env"],
               plugins: [
                 "@babel/plugin-transform-runtime",

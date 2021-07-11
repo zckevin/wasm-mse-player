@@ -1,4 +1,9 @@
+"use strict";
+
 import { assert } from "../assert.js";
+import { SimpleMaxBufferTimeController } from "../../../src/controller.js";
+// import WasmMsePlayer from "../wasm-mse-player/bundle.js"
+import WasmMsePlayer from "../../../index.js";
 
 let g_config = {
   fragments: [],
@@ -11,10 +16,10 @@ let g_config = {
 
 function createMse() {
   return new Promise((resolve) => {
-    // const v = document.getElementsByTagName("video")[0];
-    // assert(v, "video element not found?");
-    const v = document.createElement("video");
-    v.style.width = "480px";
+    const v = document.getElementsByTagName("video")[0];
+    assert(v, "video element not found?");
+    // const v = document.createElement("video");
+    // v.style.width = "480px";
 
     const mediaSource = new MediaSource();
     const url = URL.createObjectURL(mediaSource);
@@ -128,11 +133,33 @@ g_config.onFFmpegMsgCallback = (msg) => {
   }
 };
 
-(async function () {
-  const [v, mediaSource] = await createMse();
-  g_config.videoElement = v;
-  g_config.mediaSource = mediaSource;
-})();
+g_config.createPlayer = async ({
+  byteLength,
+  readRequest,
+  onFragment,
+  onFFmpegMsgCallback,
+}) => {
+  if (!g_config.videoElement) {
+    const [v, mediaSource] = await createMse();
+    g_config.videoElement = v;
+    g_config.mediaSource = mediaSource;
+  }
+  const controller = new SimpleMaxBufferTimeController(
+    g_config.videoElement,
+    g_config.mediaSource
+  );
+  const player = new WasmMsePlayer(
+    byteLength,
+    readRequest,
+    onFragment || g_config.onFragment,
+    onFFmpegMsgCallback || g_config.onFFmpegMsgCallback,
+    controller.pauseDecodeIfNeeded.bind(controller)
+  );
+  controller.setWakeupCallback(
+    player._worker.wakeupWrapper.bind(player._worker)
+  );
+  g_config.player = player;
+};
 
 g_config.run_player = RunPlayer;
 

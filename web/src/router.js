@@ -1,22 +1,20 @@
-import { createWebHistory, createRouter } from "vue-router";
-import Home from "@/views/Home.vue";
-import About from "@/views/About.vue";
+import { createWebHashHistory, createRouter } from "vue-router";
+import Player from "./components/Player.vue";
 
 const routes = [
   {
     path: "/",
-    name: "Home",
-    component: Home,
+    redirect: "/file",
   },
   {
-    path: "/about",
-    name: "About",
-    component: About,
+    path: "/:name",
+    component: Player,
+    props: true,
   },
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes,
 });
 

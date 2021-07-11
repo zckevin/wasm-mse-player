@@ -193,7 +193,6 @@ class WasmWorker {
   }
 
   run() {
-    // factory(this.emscriten_config).then((Module) => {
     this.wasm_factory(this.emscriten_config).then((Module) => {
       this._module = Module;
       this._runFFmpeg(Module);

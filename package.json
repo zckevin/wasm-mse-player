@@ -17,7 +17,6 @@
     "chalk": "^4.1.1",
     "copy-webpack-plugin": "^9.0.0",
     "jest": "^27.0.6",
-    "prettier": "^2.3.2",
     "puppeteer": "^10.1.0",
     "rimraf": "^3.0.2",
     "webpack": "^5.40.0",

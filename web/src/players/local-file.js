@@ -1,17 +1,12 @@
 "use strict";
 
 import { g_config } from "./player.js";
-import { assert } from "../assert.js";
-import { SimpleMaxBufferTimeController } from "../../../src/controller.js";
-
-// import WasmMsePlayer from "../wasm-mse-player/bundle.js"
-import WasmMsePlayer from "../../../index.js";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function runLocalFilePlayer(videoAb) {
+function initLocalFilePlayer(videoAb) {
   const readRequest = async (pos, max_read_n) => {
     // add some async to avoid dead lock in atomics.js
     await sleep(1);
@@ -19,21 +14,11 @@ function runLocalFilePlayer(videoAb) {
     return videoAb.slice(pos, pos + max_read_n);
   };
 
-  const controller = new SimpleMaxBufferTimeController(
-    g_config.videoElement,
-    g_config.mediaSource
-  );
-  const player = new WasmMsePlayer(
-    videoAb.byteLength,
+  const byteLength = videoAb.byteLength;
+  g_config.createPlayer({
+    byteLength,
     readRequest,
-    g_config.onFragment,
-    g_config.onFFmpegMsgCallback,
-    controller.pauseDecodeIfNeeded.bind(controller)
-  );
-  controller.setWakeupCallback(
-    player._worker.wakeupWrapper.bind(player._worker)
-  );
-  g_config.player = player;
+  });
 }
 
-export default runLocalFilePlayer;
+export default initLocalFilePlayer;
