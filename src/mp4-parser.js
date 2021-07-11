@@ -30,7 +30,9 @@ const mp4_parser = BinaryParser.start()
   });
 
 export default class SimpleMp4Parser {
-  constructor() {
+  constructor(onFragmentCallback) {
+    this.onFragmentCallback = onFragmentCallback;
+
     // TODO: figure out max buf_n needed
     this._write_buf = new ArrayBuffer(16 * 1024 * 1024);
     this._buf_pos = 0;
@@ -73,7 +75,7 @@ export default class SimpleMp4Parser {
    *   @buf: Uint8Array
    * }
    */
-  do_parse() {
+  tryParse() {
     // call BinaryParser
     let result;
     try {
@@ -136,38 +138,24 @@ export default class SimpleMp4Parser {
     // FFmpeg mov muxer seek back and rewrite data in moof
     if (file_position < this._counter_in) {
       this.rewriteData(file_position, view);
-      return;
-    }
+    } else {
+      this._counter_in += view.byteLength;
+      console.log("parser write_n in:", this._counter_in);
 
-    this._counter_in += view.byteLength;
-    console.log("parser write_n in:", this._counter_in);
-
-    // copy write data to _write_buf
-    {
+      // copy write data to _write_buf
       const buf_view = new Uint8Array(this._write_buf);
       buf_view.set(view, this._buf_pos);
       this._buf_pos += view.byteLength;
     }
 
-    const frag = this.do_parse();
-    if (frag) {
+    let frag = this.tryParse();
+    while(frag) {
       this.onFragmentCallback(frag);
+      frag = this.tryParse();
     }
   }
 
   ClearBuffer() {
     this._buf_pos = 0;
-  }
-
-  RunParseLoop(onFragmentCallback) {
-    this.onFragmentCallback = onFragmentCallback;
-    setInterval(() => {
-      if (this._buf_pos > 0) {
-        const frag = this.do_parse();
-        if (frag) {
-          this.onFragmentCallback(frag);
-        }
-      }
-    }, 100);
   }
 }

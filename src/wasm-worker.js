@@ -45,8 +45,7 @@ class WasmWorker {
 
     this.inputFile = new InputFileDevice(file_size, sendReadRequest);
 
-    this.mp4Parser = new SimpleMp4Parser();
-    this.mp4Parser.RunParseLoop(onFragmentCallback);
+    this.mp4Parser = new SimpleMp4Parser(onFragmentCallback);
     this.outputFile = new OutputFileDevice(file_size, this.mp4Parser);
 
     /************************************************************************/
