@@ -5,7 +5,7 @@ const WasmFactory = require("./wasm/ffmpeg.node.cjs");
 const fs = require("fs");
 
 const videoAb = fs.readFileSync(
-  "/home/zc/Downloads/video_samples/sample_1280x720_surfing_with_audio.mkv"
+  "/home/zc/Downloads/video_samples/6seconds.mp4"
 ).buffer;
 
 const onReadCb = async (pos, max_read_n) => {

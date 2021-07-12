@@ -1,6 +1,7 @@
 dist/
 fixtures/
 tests/
+wasm/
 
 FFmpeg/
 
