@@ -121,7 +121,7 @@ class WasmWorker {
       "-y",
       // disable interaction on standard input
       "-nostdin",
-      "-loglevel info",
+      "-loglevel debug",
       "-i input.file",
       // video codec copy, audio codec to AAC LC
       "-c:v copy -c:a aac",

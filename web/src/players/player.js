@@ -85,7 +85,10 @@ async function RunPlayer() {
   let sb = mediaSource.addSourceBuffer(g_config.codec);
   setInterval(() => {
     const fragments = g_config.fragments;
-    if (fragments.length >= 4 && !sb.updating) {
+    if (sb.updating) {
+      return;
+    }
+    if (fragments.length >= 4) {
       if (
         fragments[0].atom_type === "ftyp" &&
         fragments[1].atom_type === "moov" &&
@@ -97,13 +100,21 @@ async function RunPlayer() {
         return;
       }
     }
-    if (fragments.length >= 2 && !sb.updating) {
+    if (fragments.length >= 2) {
       if (
         fragments[0].atom_type === "moof" &&
         fragments[1].atom_type === "mdat"
       ) {
         appendBuffer(sb, 0, 2);
         console.log("@@append a fragment");
+        return;
+      }
+      if (
+        fragments[0].atom_type === "moof" &&
+        fragments[1].atom_type === "moof"
+      ) {
+        fragments.shift();
+        console.log("@@shift a unused moof fragment because of seeking");
         return;
       }
     }
@@ -158,9 +169,13 @@ g_config.createPlayer = async ({
   controller.setWakeupCallback(
     player._worker.wakeupWrapper.bind(player._worker)
   );
+  controller.setFFmpegSeek(
+    player._worker.seek.bind(player._worker)
+  );
   g_config.player = player;
 };
 
 g_config.run_player = RunPlayer;
+globalThis.g_config = g_config;
 
 export { g_config };

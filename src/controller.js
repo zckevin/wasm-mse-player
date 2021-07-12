@@ -55,9 +55,19 @@ class SimpleMaxBufferTimeController {
       "timeupdate",
       this.shouldWakeupNow.bind(this)
     );
+
+    this.videoElement.addEventListener("seeking", () => {
+      const currentTime = this.videoElement.currentTime;
+      console.log("ffmepg seeking to ", currentTime);
+      this.FFmpegSeek(currentTime);
+    });
+
+    // chrome mse is buggy on fragmented-mp4 that seeking forward makes video segments
+    // in between bufferd.
     this.videoElement.addEventListener(
       "seeking",
-      this.shouldWakeupNow.bind(this)
+      // this.shouldWakeupNow.bind(this)
+      () => this.wakeupFFmpeg()
     );
   }
 
@@ -74,6 +84,10 @@ class SimpleMaxBufferTimeController {
     } catch (err) {
       console.log(err);
     }
+  }
+
+  setFFmpegSeek(cb) {
+    this.FFmpegSeek = cb;
   }
 
   setWakeupCallback(cb) {
