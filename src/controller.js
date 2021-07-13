@@ -69,7 +69,7 @@ class SimpleMaxBufferTimeController {
       }
       this.lastVideoTime = currentTime;
       console.log("ffmepg seeking to ", currentTime);
-      this.wakeupFFmpeg(seekingBack);
+      // this.wakeupFFmpeg(seekingBack);
       this.FFmpegSeek(currentTime, seekingBack);
     });
 

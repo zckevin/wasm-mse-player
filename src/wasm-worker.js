@@ -43,7 +43,12 @@ class WasmWorker {
     sendReadRequest,
     pauseDecodeIfNeededCallback,
   ) {
-    this.onFFmpegMsgCallback = onFFmpegMsgCallback;
+    this.onFFmpegMsgCallback = (msg) => {
+      if (msg.cmd === "meta_info") {
+        onFFmpegMsgCallback(msg);
+        this.do_transcode_second_part();
+      }
+    };
 
     this.inputFile = new InputFileDevice(file_size, sendReadRequest);
 
@@ -95,6 +100,7 @@ class WasmWorker {
   // @seekingBack: Boolean
   seek(targetTime, seekingBack) {
     if (seekingBack) {
+      this.wakeupWrapper(true);
       this.do_transcode_second_part(targetTime);
       return;
     }
@@ -105,7 +111,9 @@ class WasmWorker {
     this.mp4Parser.ClearBuffer();
 
     // send cmd to FFmpeg
-    this._module._wasm_do_seek(targetTime);
+    // this._module._wasm_do_seek(targetTime);
+    this.wakeupWrapper(true);
+    this.do_transcode_second_part(targetTime);
 
     // wakeup paused FFmpeg if needed
     if (this.wakeupPausedAtEof) {
