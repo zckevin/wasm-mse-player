@@ -39,10 +39,12 @@ class TimeRangesHelper {
 }
 
 class SimpleMaxBufferTimeController {
-  constructor(videoElement, mediaSource) {
+  constructor(videoElement, mediaSource, clearMseBuffer) {
     this.videoElement = videoElement;
     this.mediaSource = mediaSource;
     this.outputFile = null;
+
+    this.clearMseBuffer = clearMseBuffer;
 
     this.wakeupFFmpeg = null;
     this.ffmpegLatestPacketPts = 0;
@@ -57,28 +59,44 @@ class SimpleMaxBufferTimeController {
     );
 
     this.videoElement.addEventListener("seeking", () => {
+      let seekingBack = false;
       const currentTime = this.videoElement.currentTime;
+      if (this.lastVideoTime && this.lastVideoTime > currentTime) {
+        seekingBack = true;
+        this._has_seeking_back = true;
+
+        this.clearMseBuffer(currentTime);
+      }
+      this.lastVideoTime = currentTime;
       console.log("ffmepg seeking to ", currentTime);
-      this.FFmpegSeek(currentTime);
+      this.wakeupFFmpeg(seekingBack);
+      this.FFmpegSeek(currentTime, seekingBack);
     });
 
     // chrome mse is buggy on fragmented-mp4 that seeking forward makes video segments
     // in between bufferd.
-    this.videoElement.addEventListener(
-      "seeking",
-      // this.shouldWakeupNow.bind(this)
-      () => this.wakeupFFmpeg()
-    );
+    // this.videoElement.addEventListener(
+    //   "seeking",
+    //   // this.shouldWakeupNow.bind(this)
+    //   () => this.wakeupFFmpeg()
+    // );
   }
 
   shouldWakeupNow() {
     try {
       const currentTime = this.videoElement.currentTime;
+      if (currentTime > this.lastVideoTime) {
+        this.lastVideoTime = currentTime;
+      }
+
       const ranges = new TimeRangesHelper(this.videoElement.buffered);
       const timeAhead = ranges.bufferedTimeAhead(currentTime);
 
       console.log(`curtime ${currentTime}, timeAhead ${timeAhead}`);
       if (timeAhead < this.maxBufferTime) {
+        this.wakeupFFmpeg();
+      }
+      if (this._has_seeking_back) {
         this.wakeupFFmpeg();
       }
     } catch (err) {

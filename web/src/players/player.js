@@ -82,40 +82,53 @@ async function RunPlayer() {
   mediaSource.duration = g_config.duration;
   console.log(g_config.codec);
 
-  let sb = mediaSource.addSourceBuffer(g_config.codec);
+  const sb = mediaSource.addSourceBuffer(g_config.codec);
+  let moovEmitted = false;
+
   setInterval(() => {
-    const fragments = g_config.fragments;
     if (sb.updating) {
       return;
     }
-    if (fragments.length >= 4) {
+    const fragments = g_config.fragments;
+    const matcher = (...args) => {
+      let result = true;
+      args.map((type, index) => {
+        if (type !== fragments[index].atom_type) {
+          result = false;
+        }
+      });
+      return result;
+    };
+    if (!moovEmitted && fragments.length >= 4) {
       if (
-        fragments[0].atom_type === "ftyp" &&
-        fragments[1].atom_type === "moov" &&
-        fragments[2].atom_type === "moof" &&
-        fragments[3].atom_type === "mdat"
+        matcher("ftyp", "moov", "moof", "mdat")
+        // fragments[0].atom_type === "ftyp" &&
+        // fragments[1].atom_type === "moov" &&
+        // fragments[2].atom_type === "moof" &&
+        // fragments[3].atom_type === "mdat"
       ) {
         appendBuffer(sb, 0, 4);
         console.log("@@append init");
+        moovEmitted = true;
         return;
       }
     }
-    if (fragments.length >= 2) {
+    if (moovEmitted && fragments.length >= 2) {
       if (
-        fragments[0].atom_type === "moof" &&
-        fragments[1].atom_type === "mdat"
+        matcher("moof", "mdat")
+        // fragments[0].atom_type === "moof" &&
+        // fragments[1].atom_type === "mdat"
       ) {
         appendBuffer(sb, 0, 2);
         console.log("@@append a fragment");
         return;
-      }
-      if (
-        fragments[0].atom_type === "moof" &&
-        fragments[1].atom_type === "moof"
-      ) {
-        fragments.shift();
-        console.log("@@shift a unused moof fragment because of seeking");
-        return;
+      } else {
+        while (!matcher("moof", "mdat")) {
+          fragments.shift();
+          if (fragments.length < 2) {
+            break;
+          }
+        }
       }
     }
   }, 500);
@@ -135,13 +148,21 @@ g_config.onFFmpegMsgCallback = (msg) => {
   if (msg.cmd == "meta_info") {
     assert(msg.duration && msg.duration > 0, "msg.duration is invalid");
     assert(msg.codec && msg.codec.length > 0, "msg.codec is invalid");
-    alert(JSON.stringify(msg));
+    // alert(JSON.stringify(msg));
+    console.log(JSON.stringify(msg));
 
     g_config.duration = msg.duration;
     g_config.codec = `video/mp4; codecs="${msg.codec}, mp4a.40.2"`;
 
     g_config.run_player();
   }
+};
+
+g_config.clearMseBuffer = (startTime, endTime) => {
+  const sb = g_config.mediaSource.sourceBuffers[0];
+  const start = startTime - 10 > 0 ? startTime - 10 : 0;
+  const end = endTime || g_config.duration;
+  sb.remove(start, Infinity);
 };
 
 g_config.createPlayer = async ({
@@ -157,7 +178,8 @@ g_config.createPlayer = async ({
   }
   const controller = new SimpleMaxBufferTimeController(
     g_config.videoElement,
-    g_config.mediaSource
+    g_config.mediaSource,
+    g_config.clearMseBuffer
   );
   const player = new WasmMsePlayer(
     byteLength,
@@ -169,9 +191,7 @@ g_config.createPlayer = async ({
   controller.setWakeupCallback(
     player._worker.wakeupWrapper.bind(player._worker)
   );
-  controller.setFFmpegSeek(
-    player._worker.seek.bind(player._worker)
-  );
+  controller.setFFmpegSeek(player._worker.seek.bind(player._worker));
   g_config.player = player;
 };
 

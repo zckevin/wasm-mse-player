@@ -30,6 +30,8 @@ class WasmWorker {
     };
     this.emscriten_config = emscriten_config;
     this._module = null;
+    this._snapshot_module = null;
+    this._memory_snapshot = null;
 
     this.wasm_factory = WasmFactory;
   }
@@ -39,7 +41,7 @@ class WasmWorker {
     onFragmentCallback,
     onFFmpegMsgCallback,
     sendReadRequest,
-    pauseDecodeIfNeededCallback
+    pauseDecodeIfNeededCallback,
   ) {
     this.onFFmpegMsgCallback = onFFmpegMsgCallback;
 
@@ -74,19 +76,29 @@ class WasmWorker {
     /************************************************************************/
   }
 
-  wakeupWrapper() {
+  wakeupWrapper(...args) {
     if (this.wakeupPaused) {
       // order matters
       // wakupPaused will call pauseDecodeIfNeeded,
       // this.wakeupPaused should be cleared before call
       const wakeup = this.wakeupPaused;
       this.wakeupPaused = null;
-      wakeup();
+      try {
+        wakeup?.call(null, ...args);
+      } catch(err) {
+        console.log(err)
+      }
     }
   }
 
   // @targetTime: Double
-  seek(targetTime) {
+  // @seekingBack: Boolean
+  seek(targetTime, seekingBack) {
+    if (seekingBack) {
+      this.do_transcode_second_part(targetTime);
+      return;
+    }
+
     // assert targetTime is in video stream time range
 
     // clear left stashed output data/fragments in parser
@@ -97,8 +109,8 @@ class WasmWorker {
 
     // wakeup paused FFmpeg if needed
     if (this.wakeupPausedAtEof) {
-      this.wakeupPausedAtEof();
-      this.wakeupPausedAtEof = null;
+      // this.wakeupPausedAtEof();
+      // this.wakeupPausedAtEof = null;
     }
   }
 
@@ -121,7 +133,7 @@ class WasmWorker {
       "-y",
       // disable interaction on standard input
       "-nostdin",
-      "-loglevel debug",
+      "-loglevel info",
       "-i input.file",
       // video codec copy, audio codec to AAC LC
       "-c:v copy -c:a aac",
@@ -191,9 +203,44 @@ class WasmWorker {
     this.inputFile._stopped = true;
   }
 
+  do_transcode_second_part(targetTime = 0) {
+    this.wasm_factory().then((Module2) => {
+      const from = this._memory_snapshot
+        ? this._memory_snapshot
+        : new Uint8Array(this._snapshot_module.asm.memory.buffer);
+      const to = new Uint8Array(Module2.asm.memory.buffer);
+      if (!this._memory_snapshot) {
+        this._memory_snapshot = from.slice();
+      }
+      assert(from.buffer !== to.buffer);
+
+      // copy memory
+      for (let i = 0; i < from.byteLength; i++) {
+        to[i] = from[i];
+      }
+
+      // copy fs ops
+      for (const key in Module2.FS) {
+        Module2.FS[key] = this._snapshot_module.FS[key];
+      }
+
+      // do seeking if needed
+      if (targetTime != 0) {
+        Module2._wasm_do_seek(targetTime);
+      }
+
+      // do transcoding
+      Module2._transcode_second_part();
+
+      // set this module as default
+      this._module = Module2;
+    });
+  }
+
   run() {
     this.wasm_factory(this.emscriten_config).then((Module) => {
       this._module = Module;
+      this._snapshot_module = Module;
       this._runFFmpeg(Module);
     });
   }

@@ -32,7 +32,7 @@ export default class WasmMsePlayer {
       Comlink.proxy(onFragmentCb),
       Comlink.proxy(onFFmpegMsgCb),
       Comlink.proxy(this._send_read_request.bind(this)),
-      Comlink.proxy(pauseDecodeIfNeeded)
+      Comlink.proxy(pauseDecodeIfNeeded),
     );
     this._worker.run();
   }
