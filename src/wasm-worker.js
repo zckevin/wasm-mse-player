@@ -68,8 +68,7 @@ class WasmWorker {
         return;
       }
 
-      // wakeup();
-      assert(!this.wakeupPaused, "this.wakeupPaused should be drained");
+      // assert(!this.wakeupPaused, "this.wakeupPaused should be drained");
       this.wakeupPaused = wakeup;
       pauseDecodeIfNeededCallback(cur_pkt_seconds);
     };
@@ -96,28 +95,36 @@ class WasmWorker {
 
   // @targetTime: Double
   // @seekingBack: Boolean
-  seek(targetTime, seekingBack) {
-    if (seekingBack) {
-      this.wakeupWrapper(true);
-      this.do_transcode_second_part(targetTime);
-      return;
-    }
-
+  // seek(targetTime, seekingBack) {
+  // if (seekingBack) {
+  //   this.wakeupWrapper(true);
+  //   this.do_transcode_second_part(targetTime);
+  //   return;
+  // }
+  seek(targetTime) {
     // assert targetTime is in video stream time range
 
     // clear left stashed output data/fragments in parser
     this.mp4Parser.ClearBuffer();
 
+    const should_exit = true;
+
+    try {
+      // wakeup paused FFmpeg if needed
+      if (this.wakeupPausedAtEof) {
+        this.wakeupPausedAtEof(should_exit);
+        this.wakeupPausedAtEof = null;
+      }
+    } catch (err) {
+      console.log("wakeup eof paused", err);
+    }
+
     // send cmd to FFmpeg
     // this._module._wasm_do_seek(targetTime);
-    this.wakeupWrapper(true);
-    this.do_transcode_second_part(targetTime);
+    this.wakeupWrapper(should_exit);
 
-    // wakeup paused FFmpeg if needed
-    if (this.wakeupPausedAtEof) {
-      // this.wakeupPausedAtEof();
-      // this.wakeupPausedAtEof = null;
-    }
+    targetTime = targetTime - 2 > 0 ? targetTime - 2 : 0;
+    this.do_transcode_second_part(targetTime);
   }
 
   // this.onFFmpegMsgCallback is a JSProxy, wrap it up using a function
@@ -220,6 +227,9 @@ class WasmWorker {
 
   do_transcode_second_part(targetTime = 0) {
     this.wasm_factory().then((Module2) => {
+      Module2.onAbort = () => {
+        console.log("Aborted!");
+      };
       const from = this._memory_snapshot
         ? this._memory_snapshot
         : new Uint8Array(this._snapshot_module.asm.memory.buffer);
@@ -254,6 +264,9 @@ class WasmWorker {
 
   run() {
     this.wasm_factory(this.emscriten_config).then((Module) => {
+      Module.onAbort = () => {
+        console.log("Aborted!");
+      };
       this._module = Module;
       this._snapshot_module = Module;
       this._runFFmpeg(Module);

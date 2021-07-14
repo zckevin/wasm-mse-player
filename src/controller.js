@@ -6,13 +6,15 @@ class TimeRangesHelper {
     for (let i = 0; i < rangesObj.length; i++) {
       this.ranges.push([rangesObj.start(i), rangesObj.end(i)]);
     }
+
+    this.fuzzyRange = 3;
   }
 
   _iterateRange(t, cb) {
     for (let i = 0; i < this.ranges.length; i++) {
       const range = this.ranges[i];
       // inclusive
-      if (t >= range[0] && t <= range[1]) {
+      if (t >= range[0] - this.fuzzyRange && t <= range[1]) {
         cb(range[0], range[1]);
         return;
       }
@@ -50,7 +52,7 @@ class SimpleMaxBufferTimeController {
     this.ffmpegLatestPacketPts = 0;
 
     // seconds
-    this.maxBufferTime = 5;
+    this.minBufferTime = 10;
 
     // this.videoElement.addEventListener("progress", this.shouldWakeupNow.bind(this));
     this.videoElement.addEventListener(
@@ -59,11 +61,12 @@ class SimpleMaxBufferTimeController {
     );
 
     this.videoElement.addEventListener("seeking", () => {
+      /*
       let seekingBack = false;
       const currentTime = this.videoElement.currentTime;
       if (this.lastVideoTime && this.lastVideoTime > currentTime) {
         seekingBack = true;
-        this._has_seeking_back = true;
+        // this._has_seeking_back = true;
 
         this.clearMseBuffer(currentTime);
       }
@@ -71,6 +74,15 @@ class SimpleMaxBufferTimeController {
       console.log("ffmepg seeking to ", currentTime);
       // this.wakeupFFmpeg(seekingBack);
       this.FFmpegSeek(currentTime, seekingBack);
+      */
+
+      const currentTime = this.videoElement.currentTime;
+      const ranges = new TimeRangesHelper(this.videoElement.buffered);
+      const timeAhead = ranges.bufferedTimeAhead(currentTime);
+      if (timeAhead <= 0) {
+        this.FFmpegSeek(currentTime);
+        console.log("ffmepg seeking to ", currentTime);
+      }
     });
 
     // chrome mse is buggy on fragmented-mp4 that seeking forward makes video segments
@@ -85,20 +97,27 @@ class SimpleMaxBufferTimeController {
   shouldWakeupNow() {
     try {
       const currentTime = this.videoElement.currentTime;
-      if (currentTime > this.lastVideoTime) {
+      /*
+      if (
+        this.lastVideoTime &&
+        Math.abs(currentTime - this.lastVideoTime) > 1
+      ) {
         this.lastVideoTime = currentTime;
+        return;
       }
+      this.lastVideoTime = currentTime;
+      */
 
       const ranges = new TimeRangesHelper(this.videoElement.buffered);
       const timeAhead = ranges.bufferedTimeAhead(currentTime);
 
       console.log(`curtime ${currentTime}, timeAhead ${timeAhead}`);
-      if (timeAhead < this.maxBufferTime) {
+      if (timeAhead < this.minBufferTime) {
         this.wakeupFFmpeg();
       }
-      if (this._has_seeking_back) {
-        this.wakeupFFmpeg();
-      }
+      // if (this._has_seeking_back) {
+      //   this.wakeupFFmpeg();
+      // }
     } catch (err) {
       console.log(err);
     }

@@ -141,13 +141,14 @@ g_config.setupBufferedRangesCanvas = () => {
     // wait for g_config.duration is fullfilled
     const inc = myCanvas.width / g_config.duration;
 
+    context.fillStyle = "lightgray";
+    context.fillRect(0, 0, myCanvas.width, 20);
     for (let i = 0; i < videoEl.buffered.length; i++) {
-      var startX = videoEl.buffered.start(i) * inc;
-      var endX = videoEl.buffered.end(i) * inc;
+      const startX = videoEl.buffered.start(i) * inc;
+      const width = (videoEl.buffered.end(i) - videoEl.buffered.start(i)) * inc;
 
-      context.fillRect(startX, 0, endX, 20);
-      context.rect(startX, 0, endX, 20);
-      context.stroke();
+      context.fillStyle = "red";
+      context.fillRect(startX, 0, width, 20);
     }
   });
 };

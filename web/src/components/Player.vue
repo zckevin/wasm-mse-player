@@ -53,7 +53,6 @@ export default {
     context.fillStyle = "lightgray";
     context.fillRect(0, 0, myCanvas.width, 20);
     context.fillStyle = "red";
-    context.strokeStyle = "white";
   },
 };
 </script>
