@@ -153,6 +153,8 @@ class WasmWorker {
       "-movflags frag_keyframe+empty_moov+default_base_moof",
       // max moov+moof size: 5MB
       "-frag_size 5000000",
+      // min moov+moof duration: 2 seconds
+      "-min_frag_duration 2000000",
       // max fragment duration 1000ms
       // "-frag_duration 1000",
       // output container format MP4/MOV
