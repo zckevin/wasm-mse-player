@@ -4,6 +4,7 @@ import { assert } from "../assert.js";
 import { SimpleMaxBufferTimeController } from "../../../src/controller.js";
 // import WasmMsePlayer from "../wasm-mse-player/bundle.js"
 import WasmMsePlayer from "../../../index.js";
+import { assertNotReached } from "../../../src/assert.js";
 
 let g_config = {
   fragments: [],
@@ -12,6 +13,13 @@ let g_config = {
   player: null,
   videoElement: null,
   mediaSource: null,
+
+  bufferedRangesCanvas: null,
+  updateBufferedRangesCanvas: null,
+
+  moof_mdat_info_pairs: [],
+  bufferedRanges: [],
+  is_first_moof_mdat_pair_start_from_zero: true,
 };
 
 function createMse() {
@@ -52,13 +60,62 @@ function serialize_parsing_result_to_view(result) {
   return view;
 }
 
+function ignoreSeekingMoofStartFromZero(pairInfo) {
+  if (pairInfo.from_seconds === 0) {
+    // initial fragments without seeking
+    if (g_config.is_first_moof_mdat_pair_start_from_zero) {
+      g_config.is_first_moof_mdat_pair_start_from_zero = false;
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 function appendBuffer(sb, start, end) {
   let n = 0;
-  let views = g_config.fragments.splice(start, end).map((parsedResult) => {
+  let fragPair = g_config.fragments.splice(start, end);
+  const views = fragPair.map((parsedResult) => {
     let view = serialize_parsing_result_to_view(parsedResult);
     n += view.byteLength;
     return view;
   });
+
+  // fill g_config.bufferedRanges
+  {
+    if (fragPair.length === 4) {
+      // has ftyp+moov
+      fragPair = fragPair.slice(2);
+    }
+    assert(fragPair.length === 2, "invalid moof+mdat pair");
+    assert(
+      g_config.moof_mdat_info_pairs.length > 0,
+      "g_config.moof_mdat_info_pairs should not be empty"
+    );
+
+    const moof = fragPair[0];
+    const mdat = fragPair[1];
+    for (const pairInfo of g_config.moof_mdat_info_pairs) {
+      if (
+        pairInfo.moof_size === moof.length &&
+        pairInfo.mdat_size === mdat.length
+      ) {
+        g_config.bufferedRanges.push({
+          start: pairInfo.from_seconds,
+          end: pairInfo.to_seconds,
+        });
+
+        if (ignoreSeekingMoofStartFromZero(pairInfo)) {
+          console.log(
+            "ignore invalid moof+mdat pair because of seeking",
+            pairInfo
+          );
+          return;
+        }
+        break;
+      }
+    }
+  }
 
   let pos = 0;
   let tmp = new Uint8Array(n);
@@ -74,6 +131,26 @@ function appendBuffer(sb, start, end) {
     g_config.player.stop();
   }
 }
+
+g_config.setupBufferedRangesCanvas = () => {
+  const videoEl = g_config.videoElement;
+  const myCanvas = g_config.bufferedRangesCanvas;
+  const context = myCanvas.getContext("2d");
+
+  videoEl.addEventListener("progress", function () {
+    // wait for g_config.duration is fullfilled
+    const inc = myCanvas.width / g_config.duration;
+
+    for (let i = 0; i < videoEl.buffered.length; i++) {
+      var startX = videoEl.buffered.start(i) * inc;
+      var endX = videoEl.buffered.end(i) * inc;
+
+      context.fillRect(startX, 0, endX, 20);
+      context.rect(startX, 0, endX, 20);
+      context.stroke();
+    }
+  });
+};
 
 async function RunPlayer() {
   const v = g_config.videoElement;
@@ -100,13 +177,9 @@ async function RunPlayer() {
       return result;
     };
     if (!moovEmitted && fragments.length >= 4) {
-      if (
-        matcher("ftyp", "moov", "moof", "mdat")
-        // fragments[0].atom_type === "ftyp" &&
-        // fragments[1].atom_type === "moov" &&
-        // fragments[2].atom_type === "moof" &&
-        // fragments[3].atom_type === "mdat"
-      ) {
+      // initial fragments for MSE have to be ftyp+moov+moof+mdat,
+      // dont ask why...
+      if (matcher("ftyp", "moov", "moof", "mdat")) {
         appendBuffer(sb, 0, 4);
         console.log("@@append init");
         moovEmitted = true;
@@ -114,17 +187,14 @@ async function RunPlayer() {
       }
     }
     if (moovEmitted && fragments.length >= 2) {
-      if (
-        matcher("moof", "mdat")
-        // fragments[0].atom_type === "moof" &&
-        // fragments[1].atom_type === "mdat"
-      ) {
+      if (matcher("moof", "mdat")) {
         appendBuffer(sb, 0, 2);
         console.log("@@append a fragment");
         return;
       } else {
         while (!matcher("moof", "mdat")) {
-          fragments.shift();
+          const removed = fragments.shift();
+          console.log("emitted but removed fragment", removed);
           if (fragments.length < 2) {
             break;
           }
@@ -145,7 +215,7 @@ g_config.onFragment = (fragment) => {
 
 g_config.onFFmpegMsgCallback = (msg) => {
   console.log("onFFmpegMsg", msg);
-  if (msg.cmd == "meta_info") {
+  if (msg.cmd === "meta_info") {
     assert(msg.duration && msg.duration > 0, "msg.duration is invalid");
     assert(msg.codec && msg.codec.length > 0, "msg.codec is invalid");
     // alert(JSON.stringify(msg));
@@ -155,6 +225,19 @@ g_config.onFFmpegMsgCallback = (msg) => {
     g_config.codec = `video/mp4; codecs="${msg.codec}, mp4a.40.2"`;
 
     g_config.run_player();
+  } else if (msg.cmd === "moof_mdat") {
+    /**
+     * {
+     *   cmd: "moof_mdat",
+     *   from_seconds: 0,
+     *   to_seconds: 6.0424,
+     *   mdat_size: 56341,
+     *   moof_size: 5192,
+     * }
+     */
+    g_config.moof_mdat_info_pairs.push(msg);
+  } else {
+    assertNotReached(`unknown msg: ${JSON.stringify(msg)}`);
   }
 };
 
@@ -175,6 +258,8 @@ g_config.createPlayer = async ({
     const [v, mediaSource] = await createMse();
     g_config.videoElement = v;
     g_config.mediaSource = mediaSource;
+    g_config.bufferedRangesCanvas = document.getElementById("buffered-ranges");
+    g_config.setupBufferedRangesCanvas();
   }
   const controller = new SimpleMaxBufferTimeController(
     g_config.videoElement,

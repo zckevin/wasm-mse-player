@@ -14,6 +14,7 @@
       <input type="text" v-on:keyup.enter="onEnter" name="name" size="10" />
     </div>
     <video width="480"></video>
+    <canvas id="buffered-ranges" width="480" height="20"></canvas>
   </div>
 </template>
 
@@ -46,6 +47,13 @@ export default {
       console.log(this.$route.query.url);
       initHttpPlayer(this.$route.query.url);
     }
+
+    const myCanvas = document.getElementById("buffered-ranges");
+    const context = myCanvas.getContext("2d");
+    context.fillStyle = "lightgray";
+    context.fillRect(0, 0, myCanvas.width, 20);
+    context.fillStyle = "red";
+    context.strokeStyle = "white";
   },
 };
 </script>

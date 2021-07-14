@@ -41,14 +41,9 @@ class WasmWorker {
     onFragmentCallback,
     onFFmpegMsgCallback,
     sendReadRequest,
-    pauseDecodeIfNeededCallback,
+    pauseDecodeIfNeededCallback
   ) {
-    this.onFFmpegMsgCallback = (msg) => {
-      if (msg.cmd === "meta_info") {
-        onFFmpegMsgCallback(msg);
-        this.do_transcode_second_part();
-      }
-    };
+    this.onFFmpegMsgCallback = onFFmpegMsgCallback;
 
     this.inputFile = new InputFileDevice(file_size, sendReadRequest);
 
@@ -79,7 +74,8 @@ class WasmWorker {
       pauseDecodeIfNeededCallback(cur_pkt_seconds);
     };
 
-    globalThis.__ffmpeg_msg_callback = this._ffmpeg_callback_delegate.bind(this);
+    globalThis.__ffmpeg_msg_callback =
+      this._ffmpeg_callback_delegate.bind(this);
     /************************************************************************/
   }
 
@@ -92,8 +88,8 @@ class WasmWorker {
       this.wakeupPaused = null;
       try {
         wakeup?.call(null, ...args);
-      } catch(err) {
-        console.log(err)
+      } catch (err) {
+        console.log(err);
       }
     }
   }
@@ -132,6 +128,11 @@ class WasmWorker {
     );
     const msg = JSON.parse(this._module.UTF8ToString(utf8text));
     this.onFFmpegMsgCallback(msg);
+
+    // TODO: remove this hack
+    if (msg.cmd === "meta_info") {
+      this.do_transcode_second_part();
+    }
   }
 
   _runFFmpeg(Module) {
