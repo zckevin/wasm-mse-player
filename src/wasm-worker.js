@@ -133,7 +133,15 @@ class WasmWorker {
       this.onFFmpegMsgCallback,
       "onFFmpegMsgCallback should not be undefined"
     );
-    const msg = JSON.parse(this._module.UTF8ToString(utf8text));
+
+    const msgStr = this._module.UTF8ToString(utf8text);
+    let msg;
+    try {
+      msg = JSON.parse(msgStr);
+    } catch (err) {
+      console.log(err, msgStr);
+      return;
+    }
     this.onFFmpegMsgCallback(msg);
 
     // TODO: remove this hack
