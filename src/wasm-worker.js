@@ -78,6 +78,8 @@ class WasmWorker {
       this.wakeupPaused = wakeup;
       pauseDecodeIfNeededCallback(cur_pkt_seconds);
     };
+
+    globalThis.__ffmpeg_msg_callback = this._ffmpeg_callback_delegate.bind(this);
     /************************************************************************/
   }
 
@@ -183,13 +185,15 @@ class WasmWorker {
     );
 
     try {
-      // Add JavaScript function to wasm table
-      // vi means void(int)
-      const cb = Module.addFunction(
-        this._ffmpeg_callback_delegate.bind(this),
-        "vi"
-      );
-      Module._add_js_callback(cb);
+      // using global js function and lib.js to export function to wasm instead
+      //
+      // // Add JavaScript function to wasm table
+      // // vi means void(int)
+      // const cb = Module.addFunction(
+      //   this._ffmpeg_callback_delegate.bind(this),
+      //   "vi"
+      // );
+      // Module._add_js_callback(cb);
 
       ffmpeg(args.length, argsPtr);
     } catch (err) {
