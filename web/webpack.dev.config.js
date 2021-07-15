@@ -1,4 +1,5 @@
 const path = require("path");
+const webpack = require("webpack");
 const { IgnorePlugin } = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const { VueLoaderPlugin } = require("vue-loader");
@@ -28,6 +29,14 @@ const config = {
     }),
     new IgnorePlugin(/^\.\/locale$/, /moment$/),
     new VueLoaderPlugin(),
+
+    // shim for @jorgeferrero/stream-to-buffer
+    new webpack.ProvidePlugin({
+      process: "process/browser",
+    }),
+    new webpack.ProvidePlugin({
+      Buffer: ["buffer", "Buffer"],
+    }),
   ],
   module: {
     rules: [
@@ -40,9 +49,7 @@ const config = {
             loader: "babel-loader",
             options: {
               presets: ["@babel/preset-env"],
-              plugins: [
-                "@babel/plugin-transform-runtime",
-              ],
+              plugins: ["@babel/plugin-transform-runtime"],
             },
           },
         ],
@@ -55,6 +62,12 @@ const config = {
   },
   resolve: {
     extensions: [".js", ".ts"],
+
+    // shim for @jorgeferrero/stream-to-buffer
+    fallback: {
+      fs: false,
+      stream: require.resolve("stream-browserify"),
+    },
   },
 };
 

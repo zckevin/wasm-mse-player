@@ -21,6 +21,10 @@
 <script>
 import initLocalFilePlayer from "../players/local-file.js";
 import initHttpPlayer from "../players/http.js";
+import initWebtorrentPlayer from "../players/webtorrent.js";
+import { assertNotReached } from "../assert.js";
+
+import "../../public/webtorrent.js";
 
 export default {
   name: "Player",
@@ -36,9 +40,17 @@ export default {
     },
 
     onEnter(event) {
-      if (this.name === "http") {
-        console.log(event.target.value);
-        initHttpPlayer(event.target.value);
+      console.log(event.target.value);
+      switch (this.name) {
+        case "http":
+          initHttpPlayer(event.target.value);
+          break;
+        case "webtorrent":
+          initWebtorrentPlayer(event.target.value);
+          break;
+        default:
+          assertNotReached(`unknown player: ${this.name}`);
+          break;
       }
     },
   },
@@ -46,6 +58,9 @@ export default {
     if (this.name === "http" && this.$route.query.url) {
       console.log(this.$route.query.url);
       initHttpPlayer(this.$route.query.url);
+    }
+
+    if (this.name === "webtorrent") {
     }
 
     const myCanvas = document.getElementById("buffered-ranges");
