@@ -36,6 +36,7 @@ export default class SimpleMp4Parser {
     // TODO: figure out max buf_n needed
     this._write_buf = new ArrayBuffer(16 * 1024 * 1024);
     this._buf_pos = 0;
+    this._file_pos = 0;
     this._clear_buf_for_debugging = true;
 
     this._counter_in = 0;
@@ -91,7 +92,8 @@ export default class SimpleMp4Parser {
 
     // if parsing error/corruption met, fatal
     if (this.is_parsing_error_met(result)) {
-      throw "Parsing error";
+      console.log(result);
+      throw "Mp4 parser Parsing error";
     }
     // if non-meanningful parsing result met, wait for more data
     if (!this.is_meaningful_parsing_result(result)) {
@@ -105,6 +107,7 @@ export default class SimpleMp4Parser {
     // .slice() make a copy, so we could do .fill(0) safely
     const left_ab = this._write_buf.slice(result.length, this._buf_pos);
     this._buf_pos = left_ab.byteLength;
+    this._file_pos += result.length;
     {
       const view = new Uint8Array(this._write_buf);
       if (this._clear_buf_for_debugging) {
@@ -120,12 +123,20 @@ export default class SimpleMp4Parser {
   }
 
   rewriteData(file_position, view) {
+    /*
     assert(
       file_position >= this._counter_out &&
         file_position + view.byteLength <= this._counter_in,
       "rewriteData invalid position"
     );
-    const relative_pos = file_position - this._counter_out;
+    */
+    // const relative_pos = file_position - this._counter_out;
+
+    const relative_pos = file_position - this._file_pos;
+    assert(
+      file_position >= this._file_pos && relative_pos < this._buf_pos,
+      "rewriteData invalid position"
+    );
     const buf_view = new Uint8Array(this._write_buf);
     buf_view.set(view, relative_pos);
   }
@@ -136,7 +147,18 @@ export default class SimpleMp4Parser {
       "mp4-parser AppendUint8View invalid file position"
     );
     // FFmpeg mov muxer seek back and rewrite data in moof
-    if (file_position < this._counter_in) {
+    // if (file_position < this._counter_in) {
+    if (file_position > this._file_pos + this._buf_pos && this._buf_pos === 0) {
+      console.log(
+        "mp4 parser shift forward because of seeking: ",
+        this._file_pos,
+        this._buf_pos,
+        file_position
+      );
+      this._file_pos = file_position;
+    }
+
+    if (file_position < this._file_pos + this._buf_pos) {
       this.rewriteData(file_position, view);
     } else {
       this._counter_in += view.byteLength;
@@ -149,7 +171,7 @@ export default class SimpleMp4Parser {
     }
 
     let frag = this.tryParse();
-    while(frag) {
+    while (frag) {
       this.onFragmentCallback(frag);
       frag = this.tryParse();
     }

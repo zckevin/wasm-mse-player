@@ -104,6 +104,9 @@ class WasmWorker {
   seek(targetTime) {
     // assert targetTime is in video stream time range
 
+    // reset input device status
+    this.inputFile._ended = false;
+
     // clear left stashed output data/fragments in parser
     this.mp4Parser.ClearBuffer();
 
@@ -119,12 +122,20 @@ class WasmWorker {
       console.log("wakeup eof paused", err);
     }
 
-    // send cmd to FFmpeg
-    // this._module._wasm_do_seek(targetTime);
+    // shutdown last ffmpeg instance
     this.wakeupWrapper(should_exit);
+    this._module._wasm_shutdown();
 
-    targetTime = targetTime - 2 > 0 ? targetTime - 2 : 0;
-    this.do_transcode_second_part(targetTime);
+    // TODO: fix it, this makes seeking slower
+    // for ignoring the invalid moof-mdat pair which pts/dts is 0-seeking point,
+    // we shift the seeking point back a little bit, in case we are seeking into a non-buffered area.
+    const shift_back_seconds = 10;
+    targetTime =
+      targetTime - shift_back_seconds > 0 ? targetTime - shift_back_seconds : 0;
+
+    setTimeout(() => {
+      this.do_transcode_second_part(targetTime);
+    }, 100);
   }
 
   // this.onFFmpegMsgCallback is a JSProxy, wrap it up using a function
@@ -146,7 +157,9 @@ class WasmWorker {
 
     // TODO: remove this hack
     if (msg.cmd === "meta_info") {
-      this.do_transcode_second_part();
+      setTimeout(() => {
+        this.do_transcode_second_part();
+      }, 100);
     }
   }
 
@@ -160,6 +173,8 @@ class WasmWorker {
       // disable interaction on standard input
       "-nostdin",
       "-loglevel info",
+      // Infinity times input stream shall be looped
+      // "-stream_loop -1",
       "-i input.file",
       // video codec copy, audio codec to AAC LC
       "-c:v copy -c:a aac",
@@ -167,10 +182,10 @@ class WasmWorker {
       "-channel_layout stereo",
       // generate Fmp4
       "-movflags frag_keyframe+empty_moov+default_base_moof",
-      // max moov+moof size: 5MB
-      "-frag_size 5000000",
-      // min moov+moof duration: 2 seconds
-      "-min_frag_duration 2000000",
+      // max moov+moof size: 1MB
+      "-frag_size 1000000",
+      // min moov+moof duration: 0.5 seconds
+      "-min_frag_duration 500000",
       // max fragment duration 1000ms
       // "-frag_duration 1000",
       // output container format MP4/MOV
@@ -235,6 +250,9 @@ class WasmWorker {
 
   do_transcode_second_part(targetTime = 0) {
     this.wasm_factory().then((Module2) => {
+      // set this module as default
+      this._module = Module2;
+
       Module2.onAbort = () => {
         console.log("Aborted!");
       };
@@ -264,9 +282,6 @@ class WasmWorker {
 
       // do transcoding
       Module2._transcode_second_part();
-
-      // set this module as default
-      this._module = Module2;
     });
   }
 
