@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "serve": "webpack serve --config webpack.dev.config.js --progress",
-    "dev": "webpack --config webpack.dev.config.js --watch"
+    "dev": "webpack --config webpack.dev.config.js",
+    "build": "webpack --config webpack.prod.config.js"
   },
   "keywords": [],
   "author": "",
