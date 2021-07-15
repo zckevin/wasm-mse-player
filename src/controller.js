@@ -41,12 +41,10 @@ class TimeRangesHelper {
 }
 
 class SimpleMaxBufferTimeController {
-  constructor(videoElement, mediaSource, clearMseBuffer) {
+  constructor(videoElement, mediaSource) {
     this.videoElement = videoElement;
     this.mediaSource = mediaSource;
     this.outputFile = null;
-
-    this.clearMseBuffer = clearMseBuffer;
 
     this.wakeupFFmpeg = null;
     this.ffmpegLatestPacketPts = 0;

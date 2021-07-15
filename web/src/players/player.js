@@ -164,9 +164,6 @@ async function RunPlayer() {
   let moovEmitted = false;
 
   setInterval(() => {
-    if (sb.updating) {
-      return;
-    }
     const fragments = g_config.fragments;
     const matcher = (...args) => {
       let result = true;
@@ -181,6 +178,7 @@ async function RunPlayer() {
       // initial fragments for MSE have to be ftyp+moov+moof+mdat,
       // dont ask why...
       if (matcher("ftyp", "moov", "moof", "mdat")) {
+        if (sb.updating) return;
         appendBuffer(sb, 0, 4);
         console.log("@@append init");
         moovEmitted = true;
@@ -188,21 +186,24 @@ async function RunPlayer() {
       }
     }
     if (moovEmitted && fragments.length >= 2) {
-      if (matcher("moof", "mdat")) {
-        appendBuffer(sb, 0, 2);
-        console.log("@@append a fragment");
-        return;
-      } else {
-        while (!matcher("moof", "mdat")) {
-          const removed = fragments.shift();
-          console.log("emitted but removed fragment", removed);
-          if (fragments.length < 2) {
-            break;
-          }
+      while (!matcher("moof", "mdat")) {
+        const removed = fragments.shift();
+        console.log("emitted but removed fragment", removed);
+        if (fragments.length < 2) {
+          return;
+        }
+      }
+      while (fragments.length >= 2) {
+        if (matcher("moof", "mdat")) {
+          if (sb.updating) return;
+          appendBuffer(sb, 0, 2);
+          console.log("@@append a fragment");
+        } else {
+          return;
         }
       }
     }
-  }, 500);
+  }, 100);
 
   v.controls = true;
   v.muted = true; // autoplay only works on muted video
@@ -242,13 +243,6 @@ g_config.onFFmpegMsgCallback = (msg) => {
   }
 };
 
-g_config.clearMseBuffer = (startTime, endTime) => {
-  const sb = g_config.mediaSource.sourceBuffers[0];
-  const start = startTime - 10 > 0 ? startTime - 10 : 0;
-  const end = endTime || g_config.duration;
-  sb.remove(start, Infinity);
-};
-
 g_config.createPlayer = async ({
   byteLength,
   readRequest,
@@ -264,8 +258,7 @@ g_config.createPlayer = async ({
   }
   const controller = new SimpleMaxBufferTimeController(
     g_config.videoElement,
-    g_config.mediaSource,
-    g_config.clearMseBuffer
+    g_config.mediaSource
   );
   const player = new WasmMsePlayer(
     byteLength,
