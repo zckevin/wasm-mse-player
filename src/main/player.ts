@@ -1,5 +1,5 @@
 import { WasmWorkerLoader } from "./worker-loader"
-import { Mp4Atom } from "./mp4-parser";
+import { Mp4Atom } from "../worker/mp4-parser";
 import { IO, ReadFn, JSONObject, MessageName } from "./io"
 import { MaxBufferTimeController } from "./controller";
 

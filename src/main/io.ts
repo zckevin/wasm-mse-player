@@ -1,4 +1,4 @@
-import { Mp4Atom } from "./mp4-parser"
+import { Mp4Atom } from "../worker/mp4-parser"
 
 type Primitive =
   | bigint
@@ -23,10 +23,22 @@ export type MessageName =
   "moof_mdat" |
   "error"
 
+/**
+ * This is the interface calling from worker process to main process
+ */
 export interface IO {
+  // do read async
   read: ReadFn,
+
+  // called when new atom is parsed
   onNewAtom: (atom: Mp4Atom) => void,
+
+  // called when FFmpeg emits a message
   onMessage: (name: MessageName, msg: JSONObject) => void,
+
+  // called when FFmpeg pauses and goto sleep
   onFFmpegPaused: (pkt_pts: number, is_eof: number) => void,
+
+  // called when FFmpeg seeks
   onSeek: () => void,
 }

@@ -1,4 +1,4 @@
-import { IO, MessageName } from "./io";
+import { IO, MessageName } from "../main/io";
 import { InputFileDevice, OutputFileDevice } from "./vfs";
 import { WasmWorker } from "./worker";
 

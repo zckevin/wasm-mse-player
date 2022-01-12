@@ -1,6 +1,6 @@
 import { Parser as BinaryParser } from "binary-parser";
-import { assert } from "./assert.js";
-import { IO } from "./io"
+import { assert } from "../assert.js";
+import { IO } from "../main/io"
 
 class Counter {
   private in: number = 0;

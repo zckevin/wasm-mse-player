@@ -1,9 +1,9 @@
 import { InputFileDevice, OutputFileDevice } from "./vfs";
 import { SimpleMp4Parser } from "./mp4-parser";
 import { Bridge } from "./bridge";
-import EmscriptenEntry from "../wasm/ffmpeg.js";
-import { IO } from "./io";
-import { assert } from "./assert";
+import EmscriptenEntry from "../../wasm/ffmpeg.js";
+import { IO } from "../main/io";
+import { assert } from "../assert";
 
 import * as Comlink from "comlink";
 

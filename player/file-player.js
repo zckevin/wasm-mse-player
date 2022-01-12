@@ -1,4 +1,4 @@
-import { MsePlayer } from "../worker/player"
+import { MsePlayer } from "../src/main/player"
 
 // load jpeg using webpack file-loader
 import videoSampleFileUrl from "../video_samples/Amaze-Dolby-thedigitaltheater.mp4"

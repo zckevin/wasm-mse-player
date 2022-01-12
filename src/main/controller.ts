@@ -1,4 +1,4 @@
-import { WasmWorker } from "./worker"
+import { WasmWorker } from "../worker/worker"
 import * as Comlink from "comlink"
 
 class TimeRangesHelper {

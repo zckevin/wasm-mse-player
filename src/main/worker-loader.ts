@@ -1,6 +1,5 @@
 import * as Comlink from "comlink";
-// import { keys } from 'ts-transformer-keys';
-import { WasmWorker } from "./worker"
+import { WasmWorker } from "../worker/worker"
 import { IO } from "./io";
 
 export class WasmWorkerLoader {
@@ -13,7 +12,7 @@ export class WasmWorkerLoader {
   ) {
     this.worker = new Worker(
       // @ts-ignore
-      new URL("./worker.ts", import.meta.url),
+      new URL("../worker/worker.ts", import.meta.url),
       { type: "module"}
     );
     // Comlink 2-way communication: main -> worker
@@ -22,12 +21,4 @@ export class WasmWorkerLoader {
     this.wrapped_worker = Comlink.wrap(this.worker);
     this.wrapped_worker.Run(file_size);
   }
-
-  // private comlinkWrap(obj: any): IO {
-  //   const wrapper: IO = {} as IO;
-  //   keys<IO>().map(key => {
-  //     wrapper[key] = Comlink.proxy(obj[key]);
-  //   })
-  //   return wrapper;
-  // }
 }

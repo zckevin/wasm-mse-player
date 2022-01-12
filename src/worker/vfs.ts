@@ -1,6 +1,6 @@
-import { assert, assertNotReached } from "./assert.js";
+import { assert, assertNotReached } from "../assert.js";
 import { SimpleMp4Parser } from "./mp4-parser";
-import { IO } from "./io"
+import { IO } from "../main/io"
 
 class FileDevice {
   protected pos: number = 0;
