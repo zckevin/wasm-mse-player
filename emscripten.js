@@ -29,7 +29,9 @@
   }
 
   addProxyFn("wait_read_result", true);
+  addProxyFn("pause_decode", true);
   addProxyFn("msg_callback", false);
+  addProxyFn("do_snapshot", false);
 
   mergeInto(LibraryManager.library, fns);
 })();

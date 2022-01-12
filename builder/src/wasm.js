@@ -57,7 +57,7 @@ class WasmTarget extends BuildTarget {
       `--js-library ${path.join(__dirname, "../../emscripten.js")}`,
 
       '-s INVOKE_RUN=0', // do not run main() at the beginning
-      '-s EXPORTED_FUNCTIONS="[_main, _malloc]"',
+      '-s EXPORTED_FUNCTIONS="[_main, _malloc, _wasm_set_seek_target, _wasm_stop]"',
       '-s EXPORTED_RUNTIME_METHODS="[FS, ccall, cwrap, writeAsciiToMemory, setValue, lengthBytesUTF8, stringToUTF8, UTF8ToString, addFunction, allocate, intArrayFromString, ALLOC_NORMAL]"',
 
       `-s ASYNCIFY_IMPORTS="[${getAsyncifyImports().join(", ")}]"`,

@@ -108,6 +108,7 @@ export class OutputFileDevice extends FileDevice {
   }
 
   write(stream: any, buffer: Int8Array, offset: number, length: number, position: number) {
+    console.log("FS.write():", length, offset);
     this.atomParser.AppendBuffer(position, buffer.subarray(offset, offset + length));
     return length;
   }

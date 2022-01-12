@@ -30,6 +30,7 @@ export class SimpleMp4Parser {
   private file_pos = 0;
   private counter = new Counter();
   private atomParser: BinaryParser;
+  private is_reset = false;
 
   constructor(
     private io: IO,
@@ -130,9 +131,11 @@ export class SimpleMp4Parser {
     assert(
       this.buf_pos + buf.byteLength <= this.write_buf.byteLength,
       "AppendBuffer(): buffer overflow");
-    assert(
-      filePosition === this.file_pos + this.buf_pos,
-      "AppendBuffer(): invalid file position");
+
+    if (this.is_reset) {
+      this.is_reset = false;
+      this.file_pos = filePosition;
+    }
     this.counter.addIn(buf.byteLength);
     const view = new Int8Array(this.write_buf);
     view.set(buf, this.buf_pos);
@@ -147,7 +150,8 @@ export class SimpleMp4Parser {
     }
   }
 
-  ClearBuffer() {
+  Reset() {
     this.buf_pos = 0;
+    this.is_reset = true;
   }
 }

@@ -1,10 +1,12 @@
 import { IO, MessageName } from "./io";
 import { InputFileDevice, OutputFileDevice } from "./vfs";
+import { WasmWorker } from "./worker";
 
 type Pointer = number;
 
 export class Bridge {
   constructor(
+    private worker: WasmWorker,
     private io: IO,
     private Module: any,
     private inputFile: InputFileDevice,
@@ -21,7 +23,6 @@ export class Bridge {
     })
   }
 
-  // public msg_callback(name: MessageName, jsonString: string) {
   public msg_callback(namePtr: Pointer, jsonStringPtr: Pointer) {
     try {
       const name = this.Module.UTF8ToString(namePtr) as MessageName;
@@ -34,5 +35,14 @@ export class Bridge {
       console.error("msg_callback(), JSON parse error:", err)
       throw err;
     }
+  }
+
+  public pause_decode(wakeup: (shouldExit: number) => void, pkt_pts: number, is_eof: number) {
+    console.log("pause_decode", pkt_pts, is_eof);
+    this.worker.onFFmpegPaused(wakeup, pkt_pts, is_eof);
+  }
+
+  public do_snapshot() {
+    this.worker.do_snapshot();
   }
 }

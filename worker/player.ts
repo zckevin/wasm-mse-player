@@ -1,6 +1,7 @@
 import { WasmWorkerLoader } from "./worker-loader"
 import { Mp4Atom } from "./mp4-parser";
 import { IO, ReadFn, JSONObject, MessageName } from "./io"
+import { MaxBufferTimeController } from "./controller";
 
 import EventEmitter from "eventemitter3";
 
@@ -27,6 +28,15 @@ class MsePlayerIO extends EventEmitter implements IO {
       this.emit("onMetaInfo");
     }
   }
+
+  public onFFmpegPaused(pkt_pts: number, is_eof: number) {
+    // @ts-ignore
+    this.controller.onFFmpegPaused(pkt_pts, is_eof);
+  }
+
+  public onSeek() {
+    this.atoms = [];
+  }
 }
 
 export class MsePlayer extends MsePlayerIO {
@@ -34,18 +44,25 @@ export class MsePlayer extends MsePlayerIO {
   private sb: SourceBuffer;
   private loopInterval: any;
 
+  private controller: MaxBufferTimeController;
+
   constructor(
     read: ReadFn,
     private file_size: number,
     private videoElement: HTMLVideoElement,
-    private controller: any,
   ) {
     super(read);
 
     const worker = new WasmWorkerLoader(this.file_size, this);
+    this.controller = new MaxBufferTimeController(
+      10,
+      worker.wrapped_worker,
+      videoElement,
+    );
+
     this.once("onMetaInfo", () => {
       this.startPlaying();
-    })
+    });
   }
 
   private serializeAtom(atom: Mp4Atom): Uint8Array {

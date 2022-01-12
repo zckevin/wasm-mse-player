@@ -1,7 +1,7 @@
 import { MsePlayer } from "../worker/player"
 
 // load jpeg using webpack file-loader
-import videoSampleFileUrl from "../video_samples/532k-small.mp4"
+import videoSampleFileUrl from "../video_samples/Amaze-Dolby-thedigitaltheater.mp4"
 
 async function init() {
   const videoElement = document.createElement("video");

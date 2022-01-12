@@ -1,3 +1,5 @@
+import { WasmWorker } from "./worker"
+import * as Comlink from "comlink"
 
 class TimeRangesHelper {
   private ranges: Array<[number, number]> = [];
@@ -42,41 +44,60 @@ class TimeRangesHelper {
 }
 
 export class MaxBufferTimeController {
+  private ffmpeg: {
+    pktTimestamp: number,
+    // wakeup: () => void,
+  }
+
   constructor(
     private maxBufferTime: number, // seconds
-    private videoElement: HTMLVideoElement,
-    private mediaSource: MediaSource,
-    private worker: any,
+    private workerWrapper: Comlink.Remote<WasmWorker>,
+    public videoElement: HTMLVideoElement,
+    // private mediaSource: MediaSource,
   ) {
     this.videoElement.addEventListener("timeupdate", () => {
-      this.shouldWakeupNow();
+      this.tryWakeupNow();
     });
 
     this.videoElement.addEventListener("seeking", () => {
       const currentTime = this.videoElement.currentTime;
-      console.log("ffmepg seeking to ", currentTime);
-      this.worker.Seek(currentTime);
-    });
 
-    // chrome mse is buggy on fragmented-mp4 that seeking forward makes video segments
-    // in between bufferd.
-    this.videoElement.addEventListener("seeking", () => {
-      this.worker.Wakeup();
+      const ranges = new TimeRangesHelper(this.videoElement.buffered);
+      const timeAhead = ranges.bufferedTimeAhead(currentTime);
+      if (timeAhead <= 0) {
+        console.log("MaxBufferTimeController, seeking to", currentTime);
+        this.workerWrapper.seek(currentTime);
+      }
     });
   }
 
-  private shouldWakeupNow() {
+  private tryWakeupNow() {
+    if (this.ifWakeupNow()) {
+      const should_exit = 0;
+      this.workerWrapper.wakeup(should_exit);
+    }
+  }
+
+  private ifWakeupNow() {
     try {
       const currentTime = this.videoElement.currentTime;
       const ranges = new TimeRangesHelper(this.videoElement.buffered);
       const timeAhead = ranges.bufferedTimeAhead(currentTime);
 
-      console.log(`curtime ${currentTime}, timeAhead ${timeAhead}`);
+      console.log(`ifWakeupNow(): curtime ${currentTime}, timeAhead ${timeAhead}`);
       if (timeAhead < this.maxBufferTime) {
-        this.worker.Wakeup();
+        return true;
       }
     } catch (err) {
-      console.log(err);
+      console.error("ifWakeupNow(): ", err);
     }
+    return false;
+  }
+
+  public onFFmpegPaused(pkt_pts: number, is_eof: number) {
+    this.ffmpeg = {
+      pktTimestamp: pkt_pts,
+    }
+    this.tryWakeupNow();
   }
 }

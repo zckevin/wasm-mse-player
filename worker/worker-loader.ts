@@ -5,7 +5,7 @@ import { IO } from "./io";
 
 export class WasmWorkerLoader {
   private worker: Worker;
-  private wrapped_worker: Comlink.Remote<WasmWorker>;
+  public wrapped_worker: Comlink.Remote<WasmWorker>;
 
   constructor(
     file_size: number,

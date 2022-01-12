@@ -27,4 +27,6 @@ export interface IO {
   read: ReadFn,
   onNewAtom: (atom: Mp4Atom) => void,
   onMessage: (name: MessageName, msg: JSONObject) => void,
+  onFFmpegPaused: (pkt_pts: number, is_eof: number) => void,
+  onSeek: () => void,
 }

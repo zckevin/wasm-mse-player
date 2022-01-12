@@ -3,6 +3,7 @@ import { SimpleMp4Parser } from "./mp4-parser";
 import { Bridge } from "./bridge";
 import EmscriptenEntry from "../wasm/ffmpeg.js";
 import { IO } from "./io";
+import { assert } from "./assert";
 
 import * as Comlink from "comlink";
 
@@ -11,7 +12,6 @@ export class WasmWorker {
   private outputFile: OutputFileDevice;
   private atomParser: SimpleMp4Parser;
   private io: IO;
-
   private bridge: Bridge;
 
   private Module: any = {
@@ -96,19 +96,153 @@ export class WasmWorker {
     }
   }
 
+  private wakeupCb: (shouldExit: number) => void | null;
+  private delayedSeek: {
+    targetTime: number,
+  } | null = null;
+
+  /**
+   * This callback fired after FFmpeg instance is sleeping
+   * @param wakeup 
+   * @param pkt_pts 
+   * @param is_eof 
+   * @returns 
+   */
+  public onFFmpegPaused(wakeupCb: (shouldExit: number) => void, pkt_pts: number, is_eof: number) {
+    this.wakeupCb = wakeupCb;
+
+    // if has delayed seek task, wakeup & abort FFmpeg instance right now
+    if (this.delayedSeek) {
+      this.wakeup(1);
+    } else {
+      this.io.onFFmpegPaused(pkt_pts, is_eof);
+    }
+  }
+
+  /**
+   * Continue the FFmpeg instance
+   * 
+   * If shouldExit is 1, FFmpeg will **abort** right after we continue from 
+   * the Asyncify callback
+   * 
+   * @param shouldExit 
+   * @returns 
+   */
+  public wakeup(shouldExit: number) {
+    if (!this.wakeupCb) {
+      return;
+    }
+    console.log("wakeup ffmpeg, shouldExit:", shouldExit);
+    const fn = this.wakeupCb;
+    this.wakeupCb = null;
+
+    fn(shouldExit);
+
+    if (shouldExit === 1 && this.delayedSeek) {
+      this.runDelayedSeek();
+    }
+  }
+
+  /**
+   * Kill the running FFmpeg wasm and spawn a new one with the seeking target time
+   * 
+   * Because seek must be done after the existing FFmpeg instance exits,
+   * we setup a delayed task here and fires it at the next time FFmpeg goes 
+   * into sleep(this.onFFmpegPaused()) or just got waked up(this.wakeup())
+   * 
+   * @param targetTime 
+   */
+  public seek(targetTime: number) {
+    this.delayedSeek = {
+      targetTime,
+    };
+    this.wakeup(1);
+  }
+
+  private runDelayedSeek() {
+    assert(this.delayedSeek);
+
+    // clear internal state in parsers
+    this.atomParser.Reset();
+    this.io.onSeek();
+
+    // seek to target time
+    let { targetTime } = this.delayedSeek;
+    const shift_back_seconds = 5;
+    targetTime = Math.max(0, targetTime - shift_back_seconds);
+    setTimeout(() => this.transcode_second_part(targetTime), 100);
+
+    this.delayedSeek = null;
+    return true;
+  }
+
+  private memory_snapshot: Uint8Array;
+  private snapshot_wasm_module: any;
+
+  /**
+   * FFmpeg has got metainfo data about the video file, it's time to 
+   * take snapshot of the wasm memory.
+   */
+  public do_snapshot() {
+    assert(!this.memory_snapshot);
+    console.log("do_snapshot()")
+    // make a copy here
+    this.memory_snapshot = 
+      (new Uint8Array(this.snapshot_wasm_module.asm.memory.buffer)).slice();
+  }
+
+  /**
+   * Spawn a new worker with the saved memory snapshot, and seek to the target time.
+   * @param targetTime 
+   */
+  private transcode_second_part(targetTime: number = 0) {
+    this.emscripten_entry({})
+    .then((NewModule) => {
+      // set this module as default
+      this.Module = NewModule;
+
+      const from = this.memory_snapshot;
+      const to = new Uint8Array(NewModule.asm.memory.buffer);
+      assert(from.buffer !== to.buffer);
+
+      // copy memory
+      for (let i = 0; i < from.byteLength; i++) {
+        to[i] = from[i];
+      }
+
+      // copy fs ops
+      for (const key in NewModule.FS) {
+        NewModule.FS[key] = this.snapshot_wasm_module.FS[key];
+      }
+
+      // do seeking if needed
+      if (targetTime != 0) {
+        NewModule._wasm_set_seek_target(targetTime);
+      }
+
+      // do transcoding
+      NewModule._wasm_transcode_second_part();
+    })
+    .catch((err) => {
+      console.log("FFmpeg instance exit with error:", err);
+    })
+  }
+
   public Run(file_size: number) {
     // @ts-ignore
     this.io = Comlink.wrap(self);
     this.atomParser = new SimpleMp4Parser(this.io);
     this.inputFile = new InputFileDevice(this.io, file_size);
     this.outputFile = new OutputFileDevice(this.io, file_size, this.atomParser);
-    this.bridge = new Bridge(this.io, this.Module, this.inputFile, this.outputFile);
+    this.bridge = new Bridge(this, this.io, this.Module, this.inputFile, this.outputFile);
 
-    this.emscripten_entry(this.Module).then(() => {
-      this.Module.onAbort = () => {
-        console.log("Aborted!");
-      };
+    this.emscripten_entry(this.Module)
+    .then(() => {
+      this.snapshot_wasm_module = this.Module;
       this.startFFmpeg(this.Module);
+    })
+    .catch((err) => {
+      console.log("FFmpeg instance exit with error:", err);
     })
   }
 }
