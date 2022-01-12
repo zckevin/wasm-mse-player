@@ -1,4 +1,5 @@
 const { BuildTarget } = require("./base.js")
+const path = require("path");
 
 class LinuxTarget extends BuildTarget {
   constructor(config) {
@@ -15,7 +16,7 @@ class LinuxTarget extends BuildTarget {
       // disable interaction on standard input
       "-nostdin",
       "-loglevel info",
-      "-i /run/media/sb/hdd/FFmpeg-chrome-mse/assets/Amaze-Dolby-thedigitaltheater.mp4",
+      `-i ${path.join(__dirname, "../../video_samples/Amaze-Dolby-thedigitaltheater.mp4")}`,
       // video codec copy, audio codec to AAC LC
       "-c:v copy -c:a aac",
       // configure AAC channel info, without it MSE may throw errro

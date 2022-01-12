@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "avassert.h": "c",
+        "wasm.h": "c",
+        "avformat.h": "c"
+    }
+}

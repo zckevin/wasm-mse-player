@@ -67,6 +67,7 @@ class BuildTarget {
 
     const ffmpeg_flags = this.ffmpeg_flags.concat(this.extra_ffmpeg_flags || [], [
       `--extra-cflags="${this.cflags.join(" ")}"`,
+      `--extra-cxxflags="${this.cflags.join(" ")}"`,
       `--extra-ldflags="${this.ldflags.join(" ")}"`,
     ]);
 

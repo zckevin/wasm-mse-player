@@ -3,7 +3,7 @@ const { BuildTarget } = require("./base.js")
 const fs = require("fs")
 const path = require("path");
 const { exec } = require("shelljs")
-const safeEval = require("safe-eval")
+const safeEval = require("safe-eval");
 
 function getAsyncifyImports() {
   const emscriptenLibPath = path.join(__dirname, "../../emscripten.js")
@@ -50,9 +50,11 @@ class WasmTarget extends BuildTarget {
       "-I.",
       "-L./libavcodec -L./libavformat -L./libswresample -L./libavutil -L./libavfilter -L./libavdevice -L./libswscale",
 	    "-lavformat -lavutil -lavcodec -lswresample -lavfilter -lavdevice -lswscale",
+
 	    "fftools/ffmpeg_opt.c fftools/ffmpeg_filter.c fftools/ffmpeg_hw.c fftools/cmdutils.c fftools/ffmpeg.c",
-      // "fftools/cJSON.c fftools/wasm.c",
-      '--js-library ../emscripten.js',
+      "wasm/cJSON.c wasm/wasm.c",
+
+      `--js-library ${path.join(__dirname, "../../emscripten.js")}`,
 
       '-s INVOKE_RUN=0', // do not run main() at the beginning
       '-s EXPORTED_FUNCTIONS="[_main, _malloc]"',
@@ -67,13 +69,13 @@ class WasmTarget extends BuildTarget {
       '-s ALLOW_TABLE_GROWTH=1', // for Module.addFunction()
       '-s EXIT_RUNTIME=1',
 
-      "-s MODULARIZE -s EXPORT_ES6=1 -s ENVIRONMENT='web,worker'",
-      "-o /run/media/sb/hdd/wasm-mse-player/wasm/ffmpeg.js",
+      '-s MODULARIZE -s EXPORT_ES6=1 -s ENVIRONMENT="web,worker"',
+      '-o /run/media/sb/hdd/wasm-mse-player/wasm/ffmpeg.js',
     ];
 
     if (this.config.debugBuild) {
       this.cflags.push("-s -O0");
-      this.emscripten_flags.unshift("-g");
+      this.emscripten_flags.unshift("-g3 -O0");
     } else {
       this.cflags.push("-s -Oz");
       this.emscripten_flags.unshift("-Oz");
@@ -83,6 +85,11 @@ class WasmTarget extends BuildTarget {
       this.ldflags.push("-s USE_PTHREADS=1");
       this.emscripten_flags.unshift("-pthread -s USE_PTHREADS=1 -s PROXY_TO_PTHREAD=1 -s PTHREADS_DEBUG=1");
     }
+
+    // add macro for wasm build
+    // clang
+    this.cflags.push("-D WASM_MSE_PLAYER");
+    this.emscripten_flags.unshift("-D WASM_MSE_PLAYER");
   }
 
   make() {
