@@ -2,11 +2,11 @@
   "name": "wasm-mse-player",
   "version": "0.0.1",
   "scripts": {
-    "dev": "webpack --config webpack.dev.cjs --watch",
-    "start": "webpack --config webpack.dev.cjs --stats-children",
-    "build": "webpack --config webpack.prod.cjs",
+    "dev": "npx parcel static/index.html",
+    "build": "npx parcel build src/main/player.ts",
     "karma": "karma start ./karma.config.cjs"
   },
+  "main": "dist/bundle.js",
   "dependencies": {
     "binary-parser": "^2.0.2",
     "comlink": "^4.3.1",
