@@ -1,4 +1,4 @@
-import { IO, MessageName } from "../main/io";
+import { IO, FFmpegMsgName } from "../main/io";
 import { InputFileDevice, OutputFileDevice } from "./vfs";
 import { WasmWorker } from "./worker";
 
@@ -8,7 +8,6 @@ export class Bridge {
   constructor(
     private worker: WasmWorker,
     private io: IO,
-    private Module: any,
     private inputFile: InputFileDevice,
     private outputFile: OutputFileDevice,
   ) {
@@ -24,15 +23,18 @@ export class Bridge {
   }
 
   public msg_callback(namePtr: Pointer, jsonStringPtr: Pointer) {
-    try {
-      const name = this.Module.UTF8ToString(namePtr) as MessageName;
-      const jsonString = this.Module.UTF8ToString(jsonStringPtr) as string;
-      console.log("msg_callback()", name, jsonString)
+    const name = this.worker.getModule().UTF8ToString(namePtr) as FFmpegMsgName;
+    const jsonString = this.worker.getModule().UTF8ToString(jsonStringPtr) as string;
 
+    // string from aborted FFmpeg instance
+    if (jsonString.length <= 0) {
+      return;
+    }
+    try {
       const msg = JSON.parse(jsonString);
       this.io.onMessage(name, msg);
     } catch(err) {
-      console.error("msg_callback(), JSON parse error:", err)
+      console.error("msg_callback(), JSON parse error:", name, jsonString)
       throw err;
     }
   }

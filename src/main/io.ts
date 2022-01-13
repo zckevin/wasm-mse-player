@@ -18,27 +18,48 @@ export interface JSONObject {
 
 export type ReadFn = (pos: number, length: number) => Promise<ArrayBuffer>;
 
-export type MessageName = 
-  "meta_info" |
-  "moof_mdat" |
-  "error"
-
 /**
  * This is the interface calling from worker process to main process
  */
 export interface IO {
   // do read async
-  read: ReadFn,
+  read: ReadFn
 
   // called when new atom is parsed
-  onNewAtom: (atom: Mp4Atom) => void,
+  onNewAtom: (atom: Mp4Atom) => void
 
   // called when FFmpeg emits a message
-  onMessage: (name: MessageName, msg: JSONObject) => void,
+  onMessage: (name: FFmpegMsgName, msg: FFmpegMsg) => void
 
   // called when FFmpeg pauses and goto sleep
-  onFFmpegPaused: (pkt_pts: number, is_eof: number) => void,
+  onFFmpegPaused: (pkt_pts: number, is_eof: number) => void
 
   // called when FFmpeg seeks
-  onSeek: () => void,
+  onSeek: () => void
 }
+
+
+export interface MetaInfoMsg {
+  duration: number
+  codec: string
+}
+export interface FragmentInfoMsg {
+  from_seconds: number
+  to_seconds: number
+  moof_size: number
+  mdata_size: number
+}
+
+export interface ErrorMsg {
+  reason: string 
+}
+
+export type FFmpegMsgName = 
+  "meta_info" |
+  "fragment_info" |
+  "error"
+
+export type FFmpegMsg =
+  MetaInfoMsg |
+  FragmentInfoMsg |
+  ErrorMsg 

@@ -1,31 +1,37 @@
 import { WasmWorkerLoader } from "./worker-loader"
 import { Mp4Atom } from "../worker/mp4-parser";
-import { IO, ReadFn, JSONObject, MessageName } from "./io"
 import { MaxBufferTimeController } from "./controller";
+import { IO, ReadFn, FFmpegMsgName, FFmpegMsg, MetaInfoMsg, FragmentInfoMsg } from "./io"
 
-import EventEmitter from "eventemitter3";
-
-class MsePlayerIO extends EventEmitter implements IO {
-  protected atoms: Array<Mp4Atom> = [];
-  protected codec: string;
-  protected duration: number;
-
-  constructor(public read: ReadFn) {
-    super();
-  }
+export class MsePlayer implements IO {
+  private atoms: Array<Mp4Atom> = [];
+  private codec: string;
+  private duration: number;
 
   public onNewAtom(atom: Mp4Atom) {
     this.atoms.push(atom);
   }
 
-  public onMessage(name: MessageName, msg: JSONObject) {
-    if (name == "meta_info") {
-      if (!msg.duration || !msg.codec) {
-        throw new Error(`onMessage(): Empty meta_info, ${JSON.stringify(msg)}`)
+  public onMessage(name: FFmpegMsgName, msg: FFmpegMsg) {
+    console.log(`onMessage(): ${name}`, msg);
+    switch (name) {
+      case "meta_info": {
+        msg = msg as MetaInfoMsg
+        if (!msg.duration || !msg.codec) {
+          throw new Error(`onMessage(): Empty meta_info, ${JSON.stringify(msg)}`)
+        }
+        this.duration = msg.duration as number;
+        this.codec = `video/mp4; codecs="${msg.codec as string}, mp4a.40.2"`;
+
+        this.startPlaying();
+        break;
       }
-      this.duration = msg.duration as number;
-      this.codec = `video/mp4; codecs="${msg.codec as string}, mp4a.40.2"`;
-      this.emit("onMetaInfo");
+      case "fragment_info": {
+        this.controller.onFragmentInfo(msg as FragmentInfoMsg);
+        break;
+      }
+      default:
+        throw new Error(`onMessage(): Unknown message name: ${name}`);
     }
   }
 
@@ -37,32 +43,24 @@ class MsePlayerIO extends EventEmitter implements IO {
   public onSeek() {
     this.atoms = [];
   }
-}
 
-export class MsePlayer extends MsePlayerIO {
   private mediaSource: MediaSource;
   private sb: SourceBuffer;
   private loopInterval: any;
-
   private controller: MaxBufferTimeController;
 
   constructor(
-    read: ReadFn,
+    public read: ReadFn,
     private file_size: number,
     private videoElement: HTMLVideoElement,
   ) {
-    super(read);
-
     const worker = new WasmWorkerLoader(this.file_size, this);
     this.controller = new MaxBufferTimeController(
-      10,
+      20,
       worker.wrapped_worker,
       videoElement,
+      this,
     );
-
-    this.once("onMetaInfo", () => {
-      this.startPlaying();
-    });
   }
 
   private serializeAtom(atom: Mp4Atom): Uint8Array {
@@ -157,5 +155,13 @@ export class MsePlayer extends MsePlayerIO {
     this.videoElement.controls = true;
     this.videoElement.muted = true;
     this.videoElement.play();
+  }
+
+  public restartPlaying() {
+    console.log("restart playing, clear SourceBuffer")
+    const ranges = this.sb.buffered;
+    for (let i = 0; i < ranges.length; i++) {
+      this.sb.remove(ranges.start(i), ranges.end(i));
+    }
   }
 }

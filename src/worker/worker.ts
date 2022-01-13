@@ -6,8 +6,9 @@ import { IO } from "../main/io";
 import { assert } from "../assert";
 
 import * as Comlink from "comlink";
+import EventEmitter from "eventemitter3"
 
-export class WasmWorker {
+export class WasmWorker extends EventEmitter {
   private inputFile: InputFileDevice;
   private outputFile: OutputFileDevice;
   private atomParser: SimpleMp4Parser;
@@ -37,7 +38,13 @@ export class WasmWorker {
 
   constructor(
     private emscripten_entry: (config: any) => Promise<any>,
-  ) {}
+  ) {
+    super();
+    
+    this.on("abort", () => {
+      this.runDelayedSeek();
+    })
+  }
 
   private startFFmpeg(Module: any) {
     const cmd = [
@@ -135,12 +142,7 @@ export class WasmWorker {
     console.log("wakeup ffmpeg, shouldExit:", shouldExit);
     const fn = this.wakeupCb;
     this.wakeupCb = null;
-
     fn(shouldExit);
-
-    if (shouldExit === 1 && this.delayedSeek) {
-      this.runDelayedSeek();
-    }
   }
 
   /**
@@ -160,7 +162,9 @@ export class WasmWorker {
   }
 
   private runDelayedSeek() {
-    assert(this.delayedSeek);
+    if (!this.delayedSeek) {
+      return
+    }
 
     // clear internal state in parsers
     this.atomParser.Reset();
@@ -168,12 +172,11 @@ export class WasmWorker {
 
     // seek to target time
     let { targetTime } = this.delayedSeek;
-    const shift_back_seconds = 5;
+    const shift_back_seconds = 10;
     targetTime = Math.max(0, targetTime - shift_back_seconds);
     setTimeout(() => this.transcode_second_part(targetTime), 100);
 
     this.delayedSeek = null;
-    return true;
   }
 
   private memory_snapshot: Uint8Array;
@@ -196,10 +199,15 @@ export class WasmWorker {
    * @param targetTime 
    */
   private transcode_second_part(targetTime: number = 0) {
+    console.log("transcode_second_part")
     this.emscripten_entry({})
     .then((NewModule) => {
       // set this module as default
       this.Module = NewModule;
+      this.Module.onAbort = () => {
+        this.Module._aborted = true;
+        this.emit("abort");
+      };
 
       const from = this.memory_snapshot;
       const to = new Uint8Array(NewModule.asm.memory.buffer);
@@ -228,16 +236,28 @@ export class WasmWorker {
     })
   }
 
+  public getModule() {
+    return this.Module;
+  }
+
+  public hasSeeked() {
+    return this.Module !== this.snapshot_wasm_module;
+  }
+
   public Run(file_size: number) {
     // @ts-ignore
     this.io = Comlink.wrap(self);
     this.atomParser = new SimpleMp4Parser(this.io);
     this.inputFile = new InputFileDevice(this.io, file_size);
     this.outputFile = new OutputFileDevice(this.io, file_size, this.atomParser);
-    this.bridge = new Bridge(this, this.io, this.Module, this.inputFile, this.outputFile);
+    this.bridge = new Bridge(this, this.io, this.inputFile, this.outputFile);
 
     this.emscripten_entry(this.Module)
     .then(() => {
+      this.Module.onAbort = () => {
+        this.Module._aborted = true;
+        this.emit("abort");
+      };
       this.snapshot_wasm_module = this.Module;
       this.startFFmpeg(this.Module);
     })

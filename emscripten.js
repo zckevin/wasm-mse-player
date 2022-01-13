@@ -23,13 +23,14 @@
       }`;
     const SyncExpr = `
       fns[C_FUNCTION_PREFIX + "${__name}"] = function(...args) {
-        globalThis.bridge["${__name}"](...args);
+        return globalThis.bridge["${__name}"](...args);
       }`;
     eval(async ? AsyncExpr : SyncExpr);
   }
 
   addProxyFn("wait_read_result", true);
   addProxyFn("pause_decode", true);
+
   addProxyFn("msg_callback", false);
   addProxyFn("do_snapshot", false);
 
