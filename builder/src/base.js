@@ -55,7 +55,7 @@ class BuildTarget {
   }
 
   configure() {
-    if (this.config.debugBuild) {
+    if (!this.config.release) {
       this.ffmpeg_flags.push("--enable-debug=3 --disable-stripping");
     } else {
       this.ffmpeg_flags.push("--disable-debug --enable-stripping");

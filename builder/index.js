@@ -30,7 +30,7 @@ program
   .option('-v, --verbose', 'run verbosely', true)
   .option('-n, --dry-run', 'print command only', false)
   .option('-r, --root-dir <dir>', 'ffmpeg root dir', '')
-  .option('-d, --debug-build', 'use debug build', true)
+  .option('--release', 'release build', false)
   .option('-p, --use-pthreads', 'use pthreads', false)
 
 program

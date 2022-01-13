@@ -73,7 +73,7 @@ class WasmTarget extends BuildTarget {
       '-o /run/media/sb/hdd/wasm-mse-player/wasm/ffmpeg.js',
     ];
 
-    if (this.config.debugBuild) {
+    if (!this.config.release) {
       this.cflags.push("-s -O0");
       this.emscripten_flags.unshift("-g3 -O0");
     } else {

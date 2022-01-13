@@ -191,7 +191,8 @@ export class WasmWorker extends EventEmitter {
     console.log("do_snapshot()")
     // make a copy here
     this.memory_snapshot = 
-      (new Uint8Array(this.snapshot_wasm_module.asm.memory.buffer)).slice();
+      // (new Uint8Array(this.snapshot_wasm_module.asm.memory.buffer)).slice();
+      (new Uint8Array(this.snapshot_wasm_module.HEAP8.buffer)).slice();
   }
 
   /**
@@ -210,7 +211,8 @@ export class WasmWorker extends EventEmitter {
       };
 
       const from = this.memory_snapshot;
-      const to = new Uint8Array(NewModule.asm.memory.buffer);
+      // const to = new Uint8Array(NewModule.asm.memory.buffer);
+      const to = new Uint8Array(NewModule.HEAP8.buffer);
       assert(from.buffer !== to.buffer);
 
       // copy memory
