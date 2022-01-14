@@ -1,6 +1,6 @@
 {
   "name": "@zckevin/wasm-mse-player",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "scripts": {
     "dev": "npx parcel static/index.html",
     "build": "npx parcel build src/main/player.ts",
