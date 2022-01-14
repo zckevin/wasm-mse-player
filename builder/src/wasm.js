@@ -65,11 +65,12 @@ class WasmTarget extends BuildTarget {
       '-s ASYNCIFY_STACK_SIZE=300000',
 
       '-s INITIAL_MEMORY=134217728', // 128 MiB
-      '-s ALLOW_MEMORY_GROWTH=0',
+      '-s ALLOW_MEMORY_GROWTH=1',
       '-s ALLOW_TABLE_GROWTH=1', // for Module.addFunction()
       '-s EXIT_RUNTIME=1',
 
       '-s MODULARIZE -s EXPORT_ES6=1 -s ENVIRONMENT="web,worker"',
+      // TODO: make this a configurable option
       '-o /run/media/sb/hdd/wasm-mse-player/wasm/ffmpeg.js',
     ];
 

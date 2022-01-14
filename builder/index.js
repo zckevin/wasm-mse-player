@@ -4,8 +4,8 @@ const { LinuxTarget } = require("./src/linux.js");
 const process = require("process");
 
 function loadProcessEnv(config) {
-  if (!config.rootDir && process.env.ROOT_DIR) {
-    config.rootDir = process.env.ROOT_DIR;
+  if (!config.rootDir && process.env.FFMPEG_ROOT_DIR) {
+    config.rootDir = process.env.FFMPEG_ROOT_DIR;
   }
 }
 
