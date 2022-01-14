@@ -2,8 +2,9 @@ import { WasmWorkerLoader } from "./worker-loader"
 import { Mp4Atom } from "../worker/mp4-parser";
 import { MaxBufferTimeController } from "./controller";
 import { IO, ReadFn, FFmpegMsgName, FFmpegMsg, MetaInfoMsg, FragmentInfoMsg } from "./io"
+import EventEmitter from "eventemitter3";
 
-export class MsePlayer implements IO {
+export class MsePlayer extends EventEmitter implements IO {
   private atoms: Array<Mp4Atom> = [];
   private codec: string;
   private duration: number;
@@ -22,6 +23,7 @@ export class MsePlayer implements IO {
         }
         this.duration = msg.duration as number;
         this.codec = `video/mp4; codecs="${msg.codec as string}, mp4a.40.2"`;
+        this.emit("meta_info", this.codec);
 
         this.startPlaying();
         break;
@@ -54,6 +56,8 @@ export class MsePlayer implements IO {
     private file_size: number,
     private videoElement: HTMLVideoElement,
   ) {
+    super();
+
     const worker = new WasmWorkerLoader(this.file_size, this);
     this.controller = new MaxBufferTimeController(
       20,
