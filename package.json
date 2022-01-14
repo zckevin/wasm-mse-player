@@ -1,12 +1,14 @@
 {
-  "name": "wasm-mse-player",
+  "name": "@zckevin/wasm-mse-player",
   "version": "0.0.1",
   "scripts": {
     "dev": "npx parcel static/index.html",
     "build": "npx parcel build src/main/player.ts",
     "karma": "karma start ./karma.config.cjs"
   },
+  "files": ["dist"],
   "main": "dist/bundle.js",
+  "module": "dist/module.js",
   "dependencies": {
     "binary-parser": "^2.0.2",
     "comlink": "^4.3.1",
