@@ -1,6 +1,7 @@
 import { Parser as BinaryParser } from "binary-parser";
 import { assert } from "../assert.js";
 import { IO } from "../main/io"
+import * as Comlink from "comlink";
 
 class Counter {
   private in: number = 0;
@@ -24,7 +25,7 @@ export interface Mp4Atom {
 }
 
 export class SimpleMp4Parser {
-  readonly buf_length = 16 * 1024 * 1024;
+  readonly buf_length = 32 * 1024 * 1024;
   private write_buf = new ArrayBuffer(this.buf_length);
   private buf_pos = 0;
   private file_pos = 0;
@@ -130,7 +131,10 @@ export class SimpleMp4Parser {
   AppendBuffer(filePosition: number, buf: Int8Array): void {
     assert(
       this.buf_pos + buf.byteLength <= this.write_buf.byteLength,
-      "AppendBuffer(): buffer overflow");
+      `AppendBuffer() buffer overflow: ` +
+      `buf_pos(${this.buf_pos}), ` +
+      `append buf length(${buf.byteLength}), ` +
+      `write_buf length(${this.write_buf.byteLength})`);
 
     if (this.is_reset) {
       this.is_reset = false;
@@ -146,7 +150,7 @@ export class SimpleMp4Parser {
       if (atom === null) {
         break;
       }
-      this.io.onNewAtom(atom);
+      this.io.onNewAtom(Comlink.transfer(atom, [atom.data.buf?.buffer]));
     }
   }
 
