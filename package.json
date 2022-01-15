@@ -1,9 +1,10 @@
 {
   "name": "@zckevin/wasm-mse-player",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "scripts": {
+    "clean:output": "rimraf dist",
     "dev": "npx parcel static/index.html",
-    "build": "npx parcel build src/main/player.ts",
+    "build": "npm run clean:output && npx parcel build src/main/player.ts",
     "karma": "karma start ./karma.config.cjs"
   },
   "files": [
@@ -36,6 +37,7 @@
     "karma-jasmine": "4.0.0",
     "karma-webpack": "^5.0.0",
     "parcel": "^2.1.1",
+    "rimraf": "^3.0.2",
     "ts-loader": "^9.2.6",
     "typescript": "^4.5.4",
     "webpack": "^5.65.0",
