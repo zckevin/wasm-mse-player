@@ -71,7 +71,7 @@ class WasmTarget extends BuildTarget {
 
       '-s MODULARIZE -s EXPORT_ES6=1 -s ENVIRONMENT="web,worker"',
       // TODO: make this a configurable option
-      '-o /run/media/sb/hdd/wasm-mse-player/wasm/ffmpeg.js',
+      '-o /home/zc/PROJECTS/byrbt/wasm-mse-player/wasm/ffmpeg.js',
     ];
 
     if (!this.config.release) {

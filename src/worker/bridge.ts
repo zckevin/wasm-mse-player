@@ -39,9 +39,9 @@ export class Bridge {
     }
   }
 
-  public pause_decode(wakeup: (shouldExit: number) => void, pkt_pts: number, is_eof: number) {
-    console.log("pause_decode", pkt_pts, is_eof);
-    this.worker.onFFmpegPaused(wakeup, pkt_pts, is_eof);
+  public pause_decode(wakeup: (shouldExit: number) => void, wasm_instance_id:number, pkt_pts: number, is_eof: number) {
+    console.log("pause_decode", wasm_instance_id, pkt_pts, is_eof);
+    this.worker.onFFmpegPaused(wakeup, wasm_instance_id, pkt_pts, is_eof);
   }
 
   public do_snapshot() {

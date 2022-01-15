@@ -7,6 +7,8 @@ import { assert } from "../assert";
 
 import * as Comlink from "comlink";
 import EventEmitter from "eventemitter3"
+import { catchError, fromEvent, of, Subject, takeUntil, timeout } from "rxjs"
+import { take } from "rxjs/operators"
 
 export class WasmWorker extends EventEmitter {
   private inputFile: InputFileDevice;
@@ -40,10 +42,6 @@ export class WasmWorker extends EventEmitter {
     private emscripten_entry: (config: any) => Promise<any>,
   ) {
     super();
-    
-    this.on("abort", () => {
-      this.runDelayedSeek();
-    })
   }
 
   private startFFmpeg(Module: any) {
@@ -104,26 +102,32 @@ export class WasmWorker extends EventEmitter {
   }
 
   private wakeupCb: (shouldExit: number) => void | null;
-  private delayedSeek: {
-    targetTime: number,
-  } | null = null;
+
+  // incremental index which increses by 1 on seeking
+  private currentInstanceId: number = 0;
 
   /**
    * This callback fired after FFmpeg instance is sleeping
    * @param wakeup 
+   * @param wasm_instance_id 
    * @param pkt_pts 
    * @param is_eof 
    * @returns 
    */
-  public onFFmpegPaused(wakeupCb: (shouldExit: number) => void, pkt_pts: number, is_eof: number) {
-    this.wakeupCb = wakeupCb;
-
-    // if has delayed seek task, wakeup & abort FFmpeg instance right now
-    if (this.delayedSeek) {
-      this.wakeup(1);
-    } else {
-      this.io.onFFmpegPaused(pkt_pts, is_eof);
+  public onFFmpegPaused(
+    wakeupCb: (shouldExit: number) => void,
+    wasm_instance_id: number,
+    pkt_pts: number,
+    is_eof: number
+  ) {
+    // we have already seeked, and old FFmpeg instance should abort
+    if (wasm_instance_id < this.currentInstanceId) {
+      wakeupCb(1);
+      return;
     }
+
+    this.wakeupCb = wakeupCb;
+    this.io.onFFmpegPaused(pkt_pts, is_eof);
   }
 
   /**
@@ -145,6 +149,8 @@ export class WasmWorker extends EventEmitter {
     fn(shouldExit);
   }
 
+  private lastSeek: Subject<any> | null;
+
   /**
    * Kill the running FFmpeg wasm and spawn a new one with the seeking target time
    * 
@@ -155,28 +161,37 @@ export class WasmWorker extends EventEmitter {
    * @param targetTime 
    */
   public seek(targetTime: number) {
-    this.delayedSeek = {
-      targetTime,
-    };
+    this.currentInstanceId++;
+
+    if (this.lastSeek) {
+      this.lastSeek.complete();
+    }
+    const canceled = new Subject()
+    this.lastSeek = canceled;
+
+    fromEvent(this, "abort").pipe(
+      timeout(4000),
+      catchError(err => of(1)),
+      takeUntil(canceled),
+      take(1),
+    ).subscribe(() => {
+      this.runSeek(targetTime);
+    })
+
+    // if we have sleeping old FFmpeg instance, abort it now.
+    // put it after fromEvent to make sure event handler is binded
     this.wakeup(1);
   }
 
-  private runDelayedSeek() {
-    if (!this.delayedSeek) {
-      return
-    }
-
+  private runSeek(targetTime: number) {
     // clear internal state in parsers
     this.atomParser.Reset();
     this.io.onSeek();
 
     // seek to target time
-    let { targetTime } = this.delayedSeek;
     const shift_back_seconds = 10;
     targetTime = Math.max(0, targetTime - shift_back_seconds);
     setTimeout(() => this.transcode_second_part(targetTime), 100);
-
-    this.delayedSeek = null;
   }
 
   private memory_snapshot: Uint8Array;
@@ -231,7 +246,7 @@ export class WasmWorker extends EventEmitter {
       }
 
       // do transcoding
-      NewModule._wasm_transcode_second_part();
+      NewModule._wasm_transcode_second_part(this.currentInstanceId);
     })
     .catch((err) => {
       console.log("FFmpeg instance exit with error:", err);
