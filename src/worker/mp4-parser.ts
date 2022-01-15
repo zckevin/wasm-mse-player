@@ -66,6 +66,7 @@ export class SimpleMp4Parser {
       })
       .choice("data", {
         tag: function () {
+          // TODO: remove mfra?
           return ["ftyp", "moov", "moof", "mdat", "mfra"].indexOf(this.atom_type) >=
             0
             ? 1
@@ -128,7 +129,17 @@ export class SimpleMp4Parser {
     return atom;
   }
 
-  AppendBuffer(filePosition: number, buf: Int8Array): void {
+  private rewriteData(filePosition: number, buf: Int8Array) {
+    const relative_pos = filePosition - this.file_pos;
+    assert(
+      filePosition >= this.file_pos && relative_pos < this.buf_pos,
+      "rewriteData(): invalid position"
+    );
+    const buf_view = new Uint8Array(this.write_buf);
+    buf_view.set(buf, relative_pos);
+  }
+
+  public AppendBuffer(filePosition: number, buf: Int8Array): void {
     assert(
       this.buf_pos + buf.byteLength <= this.write_buf.byteLength,
       `AppendBuffer() buffer overflow: ` +
@@ -140,10 +151,15 @@ export class SimpleMp4Parser {
       this.is_reset = false;
       this.file_pos = filePosition;
     }
-    this.counter.addIn(buf.byteLength);
-    const view = new Int8Array(this.write_buf);
-    view.set(buf, this.buf_pos);
-    this.buf_pos += buf.byteLength;
+
+    if (filePosition < this.file_pos + this.buf_pos) {
+      this.rewriteData(filePosition, buf);
+    } else {
+      this.counter.addIn(buf.byteLength);
+      const view = new Int8Array(this.write_buf);
+      view.set(buf, this.buf_pos);
+      this.buf_pos += buf.byteLength;
+    }
 
     while (true) {
       const atom = this.tryParseAtom();
@@ -154,7 +170,7 @@ export class SimpleMp4Parser {
     }
   }
 
-  Reset() {
+  public Reset() {
     this.buf_pos = 0;
     this.is_reset = true;
   }
