@@ -102,6 +102,8 @@ export class MsePlayer extends EventEmitter implements IO {
     this.sb.appendBuffer(concated);
   }
 
+  private hasMetFtypMoov = false
+
   private appendAtoms() {
     if (this.sb.updating) {
       return;
@@ -115,7 +117,15 @@ export class MsePlayer extends EventEmitter implements IO {
         atoms[3].atom_type === "mdat"
       ) {
         console.log("appendAtoms(): append init ftyp/moov");
-        this.drainAtoms(0, 4);
+        if (!this.hasMetFtypMoov) {
+          this.drainAtoms(0, 4);
+          this.hasMetFtypMoov = true;
+        } else {
+          // has met ftyp/moov, which means player is seeked
+          // drop the corrupted moof/mdat pair after ftyp/moov
+          this.atoms.splice(2, 2);
+          this.drainAtoms(0, 2);
+        }
         return;
       }
     }
