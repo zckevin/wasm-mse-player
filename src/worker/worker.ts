@@ -7,8 +7,8 @@ import { assert } from "../assert";
 
 import * as Comlink from "comlink";
 import EventEmitter from "eventemitter3"
-import { catchError, fromEvent, of, Subject, takeUntil, timeout } from "rxjs"
-import { take } from "rxjs/operators"
+import { catchError, fromEvent, of, Subject, takeUntil, timeout, timer } from "rxjs"
+import { take, debounce } from "rxjs/operators"
 
 export class WasmWorker extends EventEmitter {
   private inputFile: InputFileDevice;
@@ -42,6 +42,14 @@ export class WasmWorker extends EventEmitter {
     private emscripten_entry: (config: any) => Promise<any>,
   ) {
     super();
+
+    fromEvent(this, "runSeek", targetTime => targetTime)
+    .pipe(
+      debounce(() => timer(500)),
+    )
+    .subscribe(targetTime => {
+      this.runSeek(targetTime)
+    })
   }
 
   private startFFmpeg(Module: any) {
@@ -175,7 +183,8 @@ export class WasmWorker extends EventEmitter {
       takeUntil(canceled),
       take(1),
     ).subscribe(() => {
-      this.runSeek(targetTime);
+      // in constructor we use fromEvent to handle this
+      this.emit("runSeek", targetTime);
     })
 
     // if we have sleeping old FFmpeg instance, abort it now.
@@ -184,6 +193,13 @@ export class WasmWorker extends EventEmitter {
   }
 
   private runSeek(targetTime: number) {
+    if (!this.Module._aborted) {
+      return;
+    } else {
+      // make sure flag is drained only once
+      this.Module._aborted = false;
+    }
+
     // clear internal state in parsers
     this.atomParser.Reset();
     this.io.onSeek();
