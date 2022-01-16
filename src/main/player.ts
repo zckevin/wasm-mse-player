@@ -22,7 +22,9 @@ export class MsePlayer extends EventEmitter implements IO {
           throw new Error(`onMessage(): Empty meta_info, ${JSON.stringify(msg)}`)
         }
         this.duration = msg.duration as number;
-        this.codec = `video/mp4; codecs="${msg.codec as string}, mp4a.40.2"`;
+        const codecString = `${msg.codec as string}` +
+          `${msg.codec.includes("avc1") ? ", mp4a.40.2" : ""}`
+        this.codec = `video/mp4; codecs="${codecString}"`;
         this.emit("meta_info", this.codec);
 
         this.startPlaying();
