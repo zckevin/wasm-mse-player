@@ -17,7 +17,7 @@ class BuildTarget {
       "--enable-demuxer=matroska,mov",
       "--enable-muxer=mov",
 
-      "--enable-decoder=h264,mp3,ac3,eac3,vorbis,opus,aac",
+      "--enable-decoder=h264,mp3,ac3,eac3,vorbis,opus,aac,dca",
       "--enable-encoder=aac",
 
       "--enable-filter=null,anull,pad,apad,tpad,buffer,buffersink,aformat,format,overlay",
